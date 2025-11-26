@@ -8,7 +8,6 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    name: Deploy to Alfajores
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -35,3 +34,24 @@ jobs:
         run: |
           cd celo-dapp
           npx hardhat run scripts/deploy.js --network alfajores
+
+      - name: Commit deployed address
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          # ensure we are at repo root
+          cd $GITHUB_WORKSPACE || true
+          ls -la
+          if [ -f deployed-address.json ]; then
+            git add deployed-address.json
+            if git diff --cached --quiet; then
+              echo "No changes to deployed-address.json"
+            else
+              git commit -m "chore: add deployed address (alfajores) [skip ci]"
+              git push origin HEAD:main
+            fi
+          else
+            echo "deployed-address.json not found"
+          fi
