@@ -1,0 +1,37 @@
+name: Deploy to Alfajores
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy to Alfajores
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: |
+          cd celo-dapp
+          npm ci
+
+      - name: Compile
+        run: |
+          cd celo-dapp
+          npx hardhat compile
+
+      - name: Deploy (Hardhat)
+        env:
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          CELO_RPC: https://alfajores-forno.celo-testnet.org
+        run: |
+          cd celo-dapp
+          npx hardhat run scripts/deploy.js --network alfajores

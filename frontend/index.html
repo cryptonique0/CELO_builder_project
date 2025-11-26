@@ -1,22 +1,128 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Celo SimplePayments</title>
+    <style>
+      body { font-family: Arial, sans-serif; max-width: 720px; margin: 2rem auto; }
+      label { display:block; margin-top:0.5rem }
+      input, button { padding:0.5rem; margin-top:0.25rem }
+      .muted { color: #666 }
+    </style>
   </head>
   <body>
     <h1>Celo SimplePayments (Demo)</h1>
-    <p>This is a minimal frontend stub. Connect a Celo wallet and send a small amount to the contract address.</p>
-    <p>Contract address (fill after deploy): <span id="addr">-</span></p>
-    <label>Send amount (wei): <input id="amount" value="1000000000000000" /></label>
-    <button id="send">Send</button>
+    <p class="muted">A tiny demo using ethers.js to connect a web wallet (MetaMask/Celo Extension) and interact with the SimplePayments contract.</p>
 
+    <div>
+      <button id="connect">Connect Wallet</button>
+      <div>Account: <span id="account">-</span></div>
+    </div>
+
+    <hr />
+
+    <div>
+      <label>Contract address: <input id="contractAddr" placeholder="0x..." style="width:100%" /></label>
+      <label>Amount (CELO): <input id="amount" value="0.001" /></label>
+      <button id="send">Send native payment</button>
+      <button id="balance">Get contract balance</button>
+      <div>Contract balance: <span id="balanceVal">-</span> CELO</div>
+    </div>
+
+    <hr />
+
+    <div>
+      <label>Withdraw to (owner only): <input id="withdrawTo" placeholder="0x..." style="width:100%" /></label>
+      <label>Withdraw amount (CELO): <input id="withdrawAmt" value="0.001" /></label>
+      <button id="withdraw">Withdraw</button>
+      <div id="withdrawStatus"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <script>
-      // Minimal JS stub: user can replace with ContractKit or ethers usage
-      document.getElementById('send').addEventListener('click', () => {
-        alert('This is a UI stub. Use ContractKit/ethers to connect and send transactions.');
-      });
+      // Minimal ABI for SimplePayments (owner, withdraw, balance)
+      const ABI = [
+        {"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},
+        {"inputs":[{"internalType":"address payable","name":"to","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"withdraw","outputs":[],"stateMutability":"nonpayable","type":"function"},
+        {"inputs":[],"name":"balance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}
+      ];
+
+      let provider, signer, account;
+
+      async function connectWallet() {
+        if (!window.ethereum) {
+          alert('No injected web3 provider found. Install MetaMask or Celo Extension Wallet.');
+          return;
+        }
+        try {
+          await window.ethereum.request({ method: 'eth_requestAccounts' });
+          provider = new ethers.providers.Web3Provider(window.ethereum);
+          signer = provider.getSigner();
+          account = await signer.getAddress();
+          document.getElementById('account').innerText = account;
+          console.log('Connected', account);
+        } catch (e) {
+          console.error(e);
+          alert('Failed to connect wallet');
+        }
+      }
+
+      async function sendPayment() {
+        const addr = document.getElementById('contractAddr').value.trim();
+        const amount = document.getElementById('amount').value.trim();
+        if (!addr) { alert('Enter contract address'); return; }
+        if (!signer) { alert('Connect wallet first'); return; }
+        try {
+          const tx = await signer.sendTransaction({ to: addr, value: ethers.utils.parseEther(amount) });
+          document.getElementById('balanceVal').innerText = 'pending...';
+          await tx.wait();
+          alert('Payment sent: ' + tx.hash);
+          await getBalance();
+        } catch (e) {
+          console.error(e);
+          alert('Send failed: ' + (e && e.message));
+        }
+      }
+
+      async function getBalance() {
+        const addr = document.getElementById('contractAddr').value.trim();
+        if (!addr) { alert('Enter contract address'); return; }
+        if (!provider) { provider = new ethers.providers.Web3Provider(window.ethereum || ethers.getDefaultProvider()); }
+        try {
+          const raw = await provider.getBalance(addr);
+          const inCelo = ethers.utils.formatEther(raw);
+          document.getElementById('balanceVal').innerText = inCelo;
+        } catch (e) {
+          console.error(e);
+          alert('Failed to read balance');
+        }
+      }
+
+      async function withdraw() {
+        const addr = document.getElementById('contractAddr').value.trim();
+        const to = document.getElementById('withdrawTo').value.trim();
+        const amount = document.getElementById('withdrawAmt').value.trim();
+        if (!addr || !to || !amount) { alert('Fill contract, to, and amount'); return; }
+        if (!signer) { alert('Connect wallet first'); return; }
+        try {
+          const contract = new ethers.Contract(addr, ABI, signer);
+          const amtWei = ethers.utils.parseEther(amount);
+          document.getElementById('withdrawStatus').innerText = 'Sending withdraw tx...';
+          const tx = await contract.withdraw(to, amtWei);
+          await tx.wait();
+          document.getElementById('withdrawStatus').innerText = 'Withdraw successful: ' + tx.hash;
+          await getBalance();
+        } catch (e) {
+          console.error(e);
+          document.getElementById('withdrawStatus').innerText = 'Withdraw failed: ' + (e && e.message);
+        }
+      }
+
+      document.getElementById('connect').addEventListener('click', connectWallet);
+      document.getElementById('send').addEventListener('click', sendPayment);
+      document.getElementById('balance').addEventListener('click', getBalance);
+      document.getElementById('withdraw').addEventListener('click', withdraw);
     </script>
   </body>
 </html>
