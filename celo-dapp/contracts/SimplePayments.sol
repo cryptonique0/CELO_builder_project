@@ -1,3 +1,16 @@
+node_modules/
+.env
+.DS_Store
+*.log
+artifacts/
+build/
+dist/
+cache/
+coverage/
+typechain-types/
+.vscode/
+*.pem
+*.key
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
