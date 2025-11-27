@@ -5,7 +5,7 @@ const { CELO_RPC, PRIVATE_KEY } = process.env;
 
 module.exports = {
   solidity: {
-    compilers: [{ version: "0.8.0" }],
+    compilers: [{ version: "0.8.20" }],
   },
   networks: {
     alfajores: {

@@ -4,36 +4,455 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Celo SimplePayments</title>
+    <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js" type="application/javascript"></script>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        max-width: 800px;
+        margin: 50px auto;
+        padding: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #333;
+      }
+      .container {
+        background: white;
+        border-radius: 15px;
+        padding: 30px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      }
+      h1 {
+        color: #667eea;
+        text-align: center;
+        margin-bottom: 10px;
+      }
+      .subtitle {
+        text-align: center;
+        color: #666;
+        margin-bottom: 30px;
+      }
+      .section {
+        margin: 25px 0;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 10px;
+        border-left: 4px solid #667eea;
+      }
+      .section h3 {
+        margin-top: 0;
+        color: #667eea;
+      }
+      input, textarea {
+        width: 100%;
+        padding: 12px;
+        margin: 8px 0;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 14px;
+        box-sizing: border-box;
+        transition: border-color 0.3s;
+      }
+      input:focus, textarea:focus {
+        outline: none;
+        border-color: #667eea;
+      }
+      button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: 600;
+        transition: transform 0.2s, box-shadow 0.2s;
+        width: 100%;
+        margin-top: 10px;
+      }
+      button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+      }
+      button:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+        transform: none;
+      }
+      .info {
+        background: #e3f2fd;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 15px 0;
+        border-left: 4px solid #2196f3;
+      }
+      .success {
+        background: #e8f5e9;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 15px 0;
+        border-left: 4px solid #4caf50;
+      }
+      .error {
+        background: #ffebee;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 15px 0;
+        border-left: 4px solid #f44336;
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+      }
+      .stat-card {
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      }
+      .stat-value {
+        font-size: 24px;
+        font-weight: bold;
+        color: #667eea;
+      }
+      .stat-label {
+        font-size: 12px;
+        color: #666;
+        margin-top: 5px;
+      }
+      #status {
+        min-height: 20px;
+        margin: 15px 0;
+      }
+      .payment-history {
+        max-height: 300px;
+        overflow-y: auto;
+      }
+      .payment-item {
+        background: white;
+        padding: 12px;
+        margin: 8px 0;
+        border-radius: 6px;
+        border: 1px solid #e0e0e0;
+      }
+      .payment-item .address {
+        font-family: monospace;
+        font-size: 12px;
+        color: #666;
+      }
+      .payment-item .amount {
+        font-weight: bold;
+        color: #4caf50;
+      }
+    </style>
   </head>
   <body>
-    <h1>Celo SimplePayments (Demo)</h1>
-    <p>This is a minimal frontend stub. Connect a Celo wallet and send a small amount to the contract address.</p>
-  <p>Contract address (deployed / provided): <span id="addr">0xd42db19569aBA76023A75A512aa22Ea12B4eAa77</span></p>
-    <label>Send amount (wei): <input id="amount" value="1000000000000000" /></label>
-    <button id="send">Send</button>
+    <div class="container">
+      <h1>🎯 Celo SimplePayments</h1>
+      <p class="subtitle">Enhanced Payment Contract on Celo Alfajores Testnet</p>
+
+      <div class="section">
+        <h3>🔗 Connect Wallet</h3>
+        <button id="connectBtn" onclick="connectWallet()">Connect MetaMask</button>
+        <div id="walletInfo" style="display:none;" class="info">
+          <strong>Connected:</strong> <span id="walletAddress"></span><br>
+          <strong>Balance:</strong> <span id="walletBalance"></span> CELO
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>📊 Contract Info</h3>
+        <div class="info">
+          <strong>Contract Address:</strong><br>
+          <span id="contractAddr" style="font-family: monospace; word-break: break-all;">Loading...</span>
+        </div>
+        <button onclick="loadStats()">Refresh Stats</button>
+        <div class="stats" id="statsContainer" style="display:none;">
+          <div class="stat-card">
+            <div class="stat-value" id="statBalance">0</div>
+            <div class="stat-label">Contract Balance (CELO)</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="statReceived">0</div>
+            <div class="stat-label">Total Received</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="statWithdrawn">0</div>
+            <div class="stat-label">Total Withdrawn</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="statPayments">0</div>
+            <div class="stat-label">Payment Count</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>💰 Send Payment</h3>
+        <label>
+          Amount (CELO):
+          <input type="number" id="paymentAmount" placeholder="0.001" step="0.001" value="0.001">
+        </label>
+        <label>
+          Memo (optional):
+          <textarea id="paymentMemo" placeholder="Payment note..." rows="2"></textarea>
+        </label>
+        <button onclick="sendPayment()">Send Payment</button>
+      </div>
+
+      <div class="section" style="display:none;" id="ownerSection">
+        <h3>👑 Owner Actions</h3>
+        <label>
+          Withdraw To:
+          <input type="text" id="withdrawTo" placeholder="0x...">
+        </label>
+        <label>
+          Amount (CELO):
+          <input type="number" id="withdrawAmount" placeholder="0.001" step="0.001">
+        </label>
+        <button onclick="withdrawFunds()">Withdraw Funds</button>
+        <button onclick="withdrawAll()">Withdraw All</button>
+        <button onclick="pauseContract()">Pause Contract</button>
+        <button onclick="unpauseContract()">Unpause Contract</button>
+      </div>
+
+      <div id="status"></div>
+    </div>
 
     <script>
-      // Minimal JS stub: display the contract address and give user a hint.
-      const CONTRACT_ADDR = '0xd42db19569aBA76023A75A512aa22Ea12B4eAa77';
-      document.getElementById('addr').textContent = CONTRACT_ADDR;
+      // Read contract address from deployed-address.json or use default
+      let CONTRACT_ADDR = '0xd42db19569aBA76023A75A512aa22Ea12B4eAa77';
+      let provider, signer, contract, userAddress;
+      
+      const CONTRACT_ABI = [
+        "function payWithMemo(string memory memo) external payable",
+        "function withdraw(address payable to, uint256 amount) external",
+        "function withdrawAll() external",
+        "function pause() external",
+        "function unpause() external",
+        "function balance() external view returns (uint256)",
+        "function getStats() external view returns (uint256, uint256, uint256, uint256, bool)",
+        "function owner() external view returns (address)",
+        "function paused() external view returns (bool)",
+        "event Paid(address indexed payer, uint256 amount, string memo)"
+      ];
 
-      document.getElementById('send').addEventListener('click', () => {
-        alert('Contract address: ' + CONTRACT_ADDR + '\nUse WalletConnect/Metamask and ethers/ContractKit to interact.');
-      });
+      // Initialize
+      document.getElementById('contractAddr').textContent = CONTRACT_ADDR;
 
-      // Small UX tweak: show the amount in CELO units for human readability
-      const amountInput = document.getElementById('amount');
-      amountInput.addEventListener('input', () => {
+      async function connectWallet() {
         try {
-          const wei = BigInt(amountInput.value || '0');
-          // 1 CELO = 1e18 wei-like units
-          const celo = Number(wei) / 1e18;
-          // show as title tooltip
-          amountInput.title = `${celo} CELO`;
-        } catch (e) {
-          amountInput.title = '';
+          if (typeof window.ethereum === 'undefined') {
+            showStatus('Please install MetaMask!', 'error');
+            return;
+          }
+
+          // Request account access
+          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          userAddress = accounts[0];
+
+          // Initialize ethers
+          provider = new ethers.providers.Web3Provider(window.ethereum);
+          signer = provider.getSigner();
+          contract = new ethers.Contract(CONTRACT_ADDR, CONTRACT_ABI, signer);
+
+          // Check if on Celo Alfajores
+          const network = await provider.getNetwork();
+          if (network.chainId !== 44787) {
+            showStatus('Please switch to Celo Alfajores Testnet (Chain ID: 44787)', 'error');
+            return;
+          }
+
+          // Get balance
+          const balance = await provider.getBalance(userAddress);
+          const balanceCelo = ethers.utils.formatEther(balance);
+
+          // Update UI
+          document.getElementById('walletAddress').textContent = 
+            userAddress.substring(0, 6) + '...' + userAddress.substring(38);
+          document.getElementById('walletBalance').textContent = 
+            parseFloat(balanceCelo).toFixed(4);
+          document.getElementById('walletInfo').style.display = 'block';
+          document.getElementById('connectBtn').textContent = '✅ Connected';
+          document.getElementById('connectBtn').disabled = true;
+
+          showStatus('Wallet connected successfully!', 'success');
+
+          // Check if user is owner
+          try {
+            const owner = await contract.owner();
+            if (owner.toLowerCase() === userAddress.toLowerCase()) {
+              document.getElementById('ownerSection').style.display = 'block';
+            }
+          } catch (e) {
+            console.log('Could not check owner:', e);
+          }
+
+          // Load stats
+          await loadStats();
+
+        } catch (error) {
+          console.error('Connection error:', error);
+          showStatus('Failed to connect wallet: ' + error.message, 'error');
+        }
+      }
+
+      async function loadStats() {
+        if (!contract) {
+          showStatus('Please connect wallet first', 'error');
+          return;
+        }
+
+        try {
+          const stats = await contract.getStats();
+          document.getElementById('statBalance').textContent = 
+            parseFloat(ethers.utils.formatEther(stats[0])).toFixed(4);
+          document.getElementById('statReceived').textContent = 
+            parseFloat(ethers.utils.formatEther(stats[1])).toFixed(4);
+          document.getElementById('statWithdrawn').textContent = 
+            parseFloat(ethers.utils.formatEther(stats[2])).toFixed(4);
+          document.getElementById('statPayments').textContent = stats[3].toString();
+          
+          document.getElementById('statsContainer').style.display = 'grid';
+          showStatus('Stats loaded successfully!', 'success');
+        } catch (error) {
+          console.error('Stats error:', error);
+          showStatus('Failed to load stats: ' + error.message, 'error');
+        }
+      }
+
+      async function sendPayment() {
+        if (!contract) {
+          showStatus('Please connect wallet first', 'error');
+          return;
+        }
+
+        try {
+          const amount = document.getElementById('paymentAmount').value;
+          const memo = document.getElementById('paymentMemo').value || '';
+
+          if (!amount || parseFloat(amount) <= 0) {
+            showStatus('Please enter a valid amount', 'error');
+            return;
+          }
+
+          showStatus('Sending payment...', 'info');
+
+          const tx = await contract.payWithMemo(memo, {
+            value: ethers.utils.parseEther(amount)
+          });
+
+          showStatus('Transaction sent! Waiting for confirmation...', 'info');
+          await tx.wait();
+
+          showStatus(`Payment sent successfully! TX: ${tx.hash}`, 'success');
+          
+          // Reload stats
+          await loadStats();
+
+        } catch (error) {
+          console.error('Payment error:', error);
+          showStatus('Payment failed: ' + error.message, 'error');
+        }
+      }
+
+      async function withdrawFunds() {
+        if (!contract) return;
+
+        try {
+          const to = document.getElementById('withdrawTo').value;
+          const amount = document.getElementById('withdrawAmount').value;
+
+          if (!to || !amount) {
+            showStatus('Please enter recipient and amount', 'error');
+            return;
+          }
+
+          showStatus('Withdrawing...', 'info');
+
+          const tx = await contract.withdraw(to, ethers.utils.parseEther(amount));
+          await tx.wait();
+
+          showStatus('Withdrawal successful!', 'success');
+          await loadStats();
+
+        } catch (error) {
+          showStatus('Withdrawal failed: ' + error.message, 'error');
+        }
+      }
+
+      async function withdrawAll() {
+        if (!contract) return;
+
+        try {
+          if (!confirm('Withdraw all funds to your address?')) return;
+
+          showStatus('Withdrawing all...', 'info');
+
+          const tx = await contract.withdrawAll();
+          await tx.wait();
+
+          showStatus('All funds withdrawn successfully!', 'success');
+          await loadStats();
+
+        } catch (error) {
+          showStatus('Withdrawal failed: ' + error.message, 'error');
+        }
+      }
+
+      async function pauseContract() {
+        if (!contract) return;
+        try {
+          const tx = await contract.pause();
+          await tx.wait();
+          showStatus('Contract paused!', 'success');
+        } catch (error) {
+          showStatus('Failed to pause: ' + error.message, 'error');
+        }
+      }
+
+      async function unpauseContract() {
+        if (!contract) return;
+        try {
+          const tx = await contract.unpause();
+          await tx.wait();
+          showStatus('Contract unpaused!', 'success');
+        } catch (error) {
+          showStatus('Failed to unpause: ' + error.message, 'error');
+        }
+      }
+
+      function showStatus(message, type) {
+        const statusDiv = document.getElementById('status');
+        statusDiv.className = type;
+        statusDiv.innerHTML = message;
+      }
+
+      // Auto-connect if previously connected
+      window.addEventListener('load', async () => {
+        if (typeof window.ethereum !== 'undefined') {
+          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+          if (accounts.length > 0) {
+            await connectWallet();
+          }
         }
       });
+
+      // Handle account changes
+      if (typeof window.ethereum !== 'undefined') {
+        window.ethereum.on('accountsChanged', (accounts) => {
+          if (accounts.length === 0) {
+            location.reload();
+          } else {
+            connectWallet();
+          }
+        });
+
+        window.ethereum.on('chainChanged', () => {
+          location.reload();
+        });
+      }
     </script>
   </body>
 </html>
