@@ -6,11 +6,15 @@
     "build": "npx hardhat compile",
     "compile": "npx hardhat compile",
     "test": "npx hardhat test",
-    "deploy:alfajores": "npx hardhat run scripts/deploy.js --network alfajores"
+    "deploy:alfajores": "npx hardhat run scripts/deploy.js --network alfajores",
+    "verify:alfajores": "npx hardhat run scripts/verify.js --network alfajores",
+    "deploy:verify:alfajores": "npm run deploy:alfajores && npm run verify:alfajores",
+    "interact:pay": "PAY_AMOUNT=0.001 MEMO='hello' npx hardhat run scripts/interact.js --network alfajores"
   },
   "devDependencies": {
     "hardhat": "^2.16.0",
     "@nomiclabs/hardhat-ethers": "^2.0.6",
+    "@nomicfoundation/hardhat-verify": "^2.0.0",
     "ethers": "^5.7.2"
   },
   "dependencies": {

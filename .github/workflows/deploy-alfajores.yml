@@ -1,0 +1,41 @@
+name: Deploy and Verify (Alfajores)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: celo-dapp
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Deploy to Alfajores
+        env:
+          CELO_RPC: ${{ secrets.CELO_RPC }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+        run: npm run deploy:alfajores
+
+      - name: Verify on CeloScan
+        env:
+          CELO_RPC: ${{ secrets.CELO_RPC }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          CELOSCAN_API_KEY: ${{ secrets.CELOSCAN_API_KEY }}
+        run: npm run verify:alfajores
+
+      - name: Upload deployed-address.json
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployed-address
+          path: deployed-address.json
