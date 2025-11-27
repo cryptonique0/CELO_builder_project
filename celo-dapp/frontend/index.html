@@ -221,8 +221,25 @@
     </div>
 
     <script>
-      // Read contract address from deployed-address.json or use default
-      let CONTRACT_ADDR = '0xd42db19569aBA76023A75A512aa22Ea12B4eAa77';
+      // Contract address - UPDATE THIS after deployment
+      // Option 1: Hardcode your deployed address here
+      let CONTRACT_ADDR = '0xd42db19569aBA76023A75A512aa22Ea12B4eAa77'; // REPLACE WITH YOUR ADDRESS
+      
+      // Option 2: Fetch from deployed-address.json (works if served with the file)
+      // Uncomment below to auto-fetch:
+      /*
+      fetch('../deployed-address.json')
+        .then(r => r.json())
+        .then(data => {
+          if (data.address) {
+            CONTRACT_ADDR = data.address;
+            document.getElementById('contractAddr').textContent = CONTRACT_ADDR;
+            console.log('Loaded address from deployed-address.json:', CONTRACT_ADDR);
+          }
+        })
+        .catch(e => console.log('Using default address'));
+      */
+      
       let provider, signer, contract, userAddress;
       
       const CONTRACT_ABI = [
