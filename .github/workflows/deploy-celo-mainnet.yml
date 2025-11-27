@@ -1,0 +1,64 @@
+name: Deploy and Verify (Celo Mainnet)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "MAINNET" to confirm deployment to production'
+        required: true
+        default: ''
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm == 'MAINNET'
+    defaults:
+      run:
+        working-directory: celo-dapp
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Compile contracts
+        run: npm run compile
+
+      - name: Deploy to Celo Mainnet
+        env:
+          CELO_RPC: ${{ secrets.CELO_RPC }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+        run: npm run deploy:celo
+
+      - name: Verify on CeloScan
+        env:
+          CELO_RPC: ${{ secrets.CELO_RPC }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          CELOSCAN_API_KEY: ${{ secrets.CELOSCAN_API_KEY }}
+        run: npm run verify:celo
+
+      - name: Upload deployed-address.json
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployed-address-mainnet
+          path: deployed-address.json
+
+      - name: Create deployment summary
+        run: |
+          echo "## 🚀 Mainnet Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Network:** Celo Mainnet (42220)" >> $GITHUB_STEP_SUMMARY
+          echo "**Contract:** SimplePayments" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f "../deployed-address.json" ]; then
+            ADDRESS=$(cat ../deployed-address.json | grep -oP '"address":\s*"\K[^"]+')
+            echo "**Address:** \`$ADDRESS\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🔗 [View on CeloScan](https://celoscan.io/address/$ADDRESS)" >> $GITHUB_STEP_SUMMARY
+          fi
