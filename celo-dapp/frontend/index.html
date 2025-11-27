@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Celo SimplePayments</title>
+  </head>
+  <body>
+    <h1>Celo SimplePayments (Demo)</h1>
+    <p>This is a minimal frontend stub. Connect a Celo wallet and send a small amount to the contract address.</p>
+  <p>Contract address (deployed / provided): <span id="addr">0xd42db19569aBA76023A75A512aa22Ea12B4eAa77</span></p>
+    <label>Send amount (wei): <input id="amount" value="1000000000000000" /></label>
+    <button id="send">Send</button>
+
+    <script>
+      // Minimal JS stub: display the contract address and give user a hint.
+      const CONTRACT_ADDR = '0xd42db19569aBA76023A75A512aa22Ea12B4eAa77';
+      document.getElementById('addr').textContent = CONTRACT_ADDR;
+
+      document.getElementById('send').addEventListener('click', () => {
+        alert('Contract address: ' + CONTRACT_ADDR + '\nUse WalletConnect/Metamask and ethers/ContractKit to interact.');
+      });
+
+      // Small UX tweak: show the amount in CELO units for human readability
+      const amountInput = document.getElementById('amount');
+      amountInput.addEventListener('input', () => {
+        try {
+          const wei = BigInt(amountInput.value || '0');
+          // 1 CELO = 1e18 wei-like units
+          const celo = Number(wei) / 1e18;
+          // show as title tooltip
+          amountInput.title = `${celo} CELO`;
+        } catch (e) {
+          amountInput.title = '';
+        }
+      });
+    </script>
+  </body>
+</html>
