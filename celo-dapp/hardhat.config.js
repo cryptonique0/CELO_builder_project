@@ -10,11 +10,11 @@ module.exports = {
   },
   networks: {
     alfajores: {
-      url: CELO_RPC || "https://alfajores-forno.celo-testnet.org",
+      url: "https://alfajores-forno.celo-testnet.org",
       accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
     },
     celo: {
-      url: "https://forno.celo.org",
+      url: CELO_RPC || "https://forno.celo.org",
       accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
     },
   },

@@ -150,7 +150,7 @@
   <body>
     <div class="container">
       <h1>🎯 Celo SimplePayments</h1>
-      <p class="subtitle">Enhanced Payment Contract on Celo Alfajores Testnet</p>
+      <p class="subtitle">Enhanced Payment Contract on Celo Mainnet</p>
 
       <div class="section">
         <h3>🔗 Connect Wallet</h3>
@@ -285,10 +285,10 @@
           signer = provider.getSigner();
           contract = new ethers.Contract(CONTRACT_ADDR, CONTRACT_ABI, signer);
 
-          // Check if on Celo Alfajores
+          // Check if on Celo Mainnet
           const network = await provider.getNetwork();
-          if (network.chainId !== 44787) {
-            showStatus('Please switch to Celo Alfajores Testnet (Chain ID: 44787)', 'error');
+          if (network.chainId !== 42220) {
+            showStatus('Please switch to Celo Mainnet (Chain ID: 42220)', 'error');
             return;
           }
 

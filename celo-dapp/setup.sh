@@ -33,12 +33,12 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "Step 1: Check Wallet Funding"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "🔗 Fund your wallet at:"
-echo "   https://faucet.celo.org"
+echo "⚠️  MAINNET - Real CELO Required!"
+echo "   Purchase CELO and send to: $WALLET_ADDRESS"
 echo ""
 echo "   Your address: $WALLET_ADDRESS"
 echo ""
-echo "   Check balance: https://alfajores.celoscan.io/address/$WALLET_ADDRESS"
+echo "   Check balance: https://celoscan.io/address/$WALLET_ADDRESS"
 echo ""
 read -p "Press Enter once you've funded your wallet..."
 
@@ -51,7 +51,7 @@ echo ""
 read -p "Do you want to verify the contract? (y/N): " verify
 if [[ $verify == "y" || $verify == "Y" ]]; then
     echo "Verifying contract..."
-    npm run verify:alfajores
+    npm run verify:celo
 fi
 
 # Generate transactions
@@ -96,10 +96,10 @@ echo ""
 echo "📊 Next Steps:"
 echo ""
 echo "1. View your transactions:"
-echo "   https://alfajores.celoscan.io/address/$WALLET_ADDRESS"
+echo "   https://celoscan.io/address/$WALLET_ADDRESS"
 echo ""
 echo "2. View your contract:"
-echo "   https://alfajores.celoscan.io/address/$CONTRACT_ADDRESS"
+echo "   https://celoscan.io/address/$CONTRACT_ADDRESS"
 echo ""
 echo "3. Test the frontend:"
 echo "   cd frontend && python3 -m http.server 8000"
