@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Analytics Dashboard - Celo</title>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #FCFF52 0%, #35CD8C 50%, #000000 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .dashboard {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #000;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            border-left: 5px solid #35CD8C;
+        }
+        .stat-card h3 {
+            color: #666;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #000;
+            margin-bottom: 5px;
+        }
+        .stat-change {
+            font-size: 0.9em;
+            color: #35CD8C;
+        }
+        .charts-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .chart-card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .chart-card h2 {
+            color: #000;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+        }
+        .payments-table {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th {
+            background: #35CD8C;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
+        }
+        tr:hover {
+            background: #f8f9fa;
+        }
+        .address {
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+        .qr-section {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-top: 20px;
+            text-align: center;
+        }
+        .qr-code {
+            margin: 20px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            display: inline-block;
+        }
+        button {
+            background: linear-gradient(135deg, #35CD8C 0%, #FCFF52 100%);
+            color: #000;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            margin: 10px;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        .export-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .filter-bar {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        select, input[type="date"] {
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+        .badge-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .badge-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1>📊 Payment Analytics Dashboard</h1>
+            <p>Real-time insights for your Celo payment contracts</p>
+            <button onclick="connectWallet()">Connect Wallet</button>
+            <div id="walletInfo" style="margin-top: 15px; display: none;">
+                <strong>Connected:</strong> <span id="walletAddress" class="address"></span>
+            </div>
+        </div>
+
+        <div class="filter-bar">
+            <label>
+                Contract:
+                <select id="contractSelect" onchange="loadAnalytics()">
+                    <option value="0x0B33158062bEBDFc1E6Fe2fA43a6cec943331402">CA 1: SimplePayments</option>
+                    <option value="0xb690E08975b20e61904E7fae6127234F4Fe6FB65">CA 2: AdvancedPayments</option>
+                    <option value="0x5d0F9219728cc9110577122875966254aaA9c75D">CA 3: MultiToken</option>
+                </select>
+            </label>
+            <label>
+                From:
+                <input type="date" id="dateFrom" onchange="filterByDate()">
+            </label>
+            <label>
+                To:
+                <input type="date" id="dateTo" onchange="filterByDate()">
+            </label>
+            <button onclick="loadAnalytics()">🔄 Refresh Data</button>
+            <button onclick="exportToCSV()">📥 Export CSV</button>
+            <button onclick="exportToJSON()">📥 Export JSON</button>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Total Payments</h3>
+                <div class="stat-value" id="totalPayments">0</div>
+                <div class="stat-change">+0 this week</div>
+            </div>
+            <div class="stat-card">
+                <h3>Total Volume</h3>
+                <div class="stat-value" id="totalVolume">0 CELO</div>
+                <div class="stat-change">+0% from last week</div>
+            </div>
+            <div class="stat-card">
+                <h3>Average Payment</h3>
+                <div class="stat-value" id="avgPayment">0 CELO</div>
+                <div class="stat-change">Last 30 days</div>
+            </div>
+            <div class="stat-card">
+                <h3>Active Today</h3>
+                <div class="stat-value" id="activeToday">0</div>
+                <div class="stat-change">Transactions</div>
+            </div>
+        </div>
+
+        <div class="charts-container">
+            <div class="chart-card">
+                <h2>Payment Trend (Last 7 Days)</h2>
+                <canvas id="trendChart"></canvas>
+            </div>
+            <div class="chart-card">
+                <h2>Payment Distribution</h2>
+                <canvas id="pieChart"></canvas>
+            </div>
+        </div>
+
+        <div class="charts-container">
+            <div class="chart-card">
+                <h2>Hourly Activity</h2>
+                <canvas id="hourlyChart"></canvas>
+            </div>
+            <div class="chart-card">
+                <h2>Top Payers</h2>
+                <canvas id="topPayersChart"></canvas>
+            </div>
+        </div>
+
+        <div class="qr-section">
+            <h2>📱 Payment QR Code Generator</h2>
+            <p>Generate QR code for easy mobile payments</p>
+            <label>
+                Amount (CELO):
+                <input type="number" id="qrAmount" placeholder="0.001" step="0.001" style="width: 150px; margin: 10px;">
+            </label>
+            <button onclick="generateQRCode()">Generate QR Code</button>
+            <div id="qrcode" class="qr-code"></div>
+            <button onclick="downloadQR()" style="display: none;" id="downloadQRBtn">Download QR Code</button>
+        </div>
+
+        <div class="payments-table">
+            <h2>Recent Transactions</h2>
+            <div class="export-buttons">
+                <button onclick="exportToCSV()">📥 Export as CSV</button>
+                <button onclick="exportToJSON()">📥 Export as JSON</button>
+                <button onclick="printTable()">🖨️ Print</button>
+            </div>
+            <table id="paymentsTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Payer</th>
+                        <th>Amount</th>
+                        <th>Memo</th>
+                        <th>Timestamp</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="paymentsBody">
+                    <tr>
+                        <td colspan="6" class="loading">Loading payments...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let provider, contract, walletAddress;
+        let trendChart, pieChart, hourlyChart, topPayersChart;
+        let paymentsData = [];
+
+        const CONTRACT_ABI = [
+            "function getPaymentCount() external view returns (uint256)",
+            "function getPayment(uint256 index) external view returns (address payer, uint256 amount, string memory memo, uint256 timestamp)",
+            "function getStats() external view returns (uint256, uint256, uint256, uint256, bool)",
+            "event Paid(address indexed payer, uint256 amount, string memo, uint256 timestamp)"
+        ];
+
+        async function connectWallet() {
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    alert('Please install MetaMask!');
+                    return;
+                }
+
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                walletAddress = accounts[0];
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+
+                document.getElementById('walletAddress').textContent = 
+                    walletAddress.substring(0, 6) + '...' + walletAddress.substring(38);
+                document.getElementById('walletInfo').style.display = 'block';
+
+                await loadAnalytics();
+            } catch (error) {
+                console.error('Error connecting wallet:', error);
+                alert('Failed to connect wallet');
+            }
+        }
+
+        async function loadAnalytics() {
+            if (!provider) {
+                alert('Please connect wallet first');
+                return;
+            }
+
+            const contractAddress = document.getElementById('contractSelect').value;
+            contract = new ethers.Contract(contractAddress, CONTRACT_ABI, provider);
+
+            try {
+                const paymentCount = await contract.getPaymentCount();
+                const stats = await contract.getStats();
+
+                // Update stats
+                document.getElementById('totalPayments').textContent = paymentCount.toString();
+                document.getElementById('totalVolume').textContent = 
+                    parseFloat(ethers.utils.formatEther(stats[1])).toFixed(4) + ' CELO';
+                
+                const avgPayment = paymentCount.gt(0) ? stats[1].div(paymentCount) : ethers.BigNumber.from(0);
+                document.getElementById('avgPayment').textContent = 
+                    parseFloat(ethers.utils.formatEther(avgPayment)).toFixed(4) + ' CELO';
+
+                // Load payment history
+                paymentsData = [];
+                const tbody = document.getElementById('paymentsBody');
+                tbody.innerHTML = '';
+
+                const loadLimit = Math.min(paymentCount.toNumber(), 50);
+                
+                for (let i = paymentCount.toNumber() - 1; i >= Math.max(0, paymentCount.toNumber() - loadLimit); i--) {
+                    const payment = await contract.getPayment(i);
+                    const paymentObj = {
+                        index: i,
+                        payer: payment[0],
+                        amount: ethers.utils.formatEther(payment[1]),
+                        memo: payment[2],
+                        timestamp: new Date(payment[3].toNumber() * 1000)
+                    };
+                    paymentsData.push(paymentObj);
+
+                    const row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td>${i + 1}</td>
+                        <td class="address">${payment[0].substring(0, 10)}...</td>
+                        <td>${parseFloat(paymentObj.amount).toFixed(4)} CELO</td>
+                        <td>${payment[2]}</td>
+                        <td>${paymentObj.timestamp.toLocaleString()}</td>
+                        <td><span class="badge badge-success">Confirmed</span></td>
+                    `;
+                }
+
+                // Calculate today's transactions
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const todayCount = paymentsData.filter(p => p.timestamp >= today).length;
+                document.getElementById('activeToday').textContent = todayCount;
+
+                updateCharts();
+            } catch (error) {
+                console.error('Error loading analytics:', error);
+                alert('Failed to load analytics data');
+            }
+        }
+
+        function updateCharts() {
+            // Trend Chart - Last 7 days
+            const last7Days = [];
+            const today = new Date();
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date(today);
+                date.setDate(date.getDate() - i);
+                date.setHours(0, 0, 0, 0);
+                last7Days.push({
+                    date: date,
+                    label: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                    count: 0,
+                    volume: 0
+                });
+            }
+
+            paymentsData.forEach(p => {
+                const dayIndex = last7Days.findIndex(d => {
+                    const nextDay = new Date(d.date);
+                    nextDay.setDate(nextDay.getDate() + 1);
+                    return p.timestamp >= d.date && p.timestamp < nextDay;
+                });
+                if (dayIndex !== -1) {
+                    last7Days[dayIndex].count++;
+                    last7Days[dayIndex].volume += parseFloat(p.amount);
+                }
+            });
+
+            if (trendChart) trendChart.destroy();
+            const trendCtx = document.getElementById('trendChart').getContext('2d');
+            trendChart = new Chart(trendCtx, {
+                type: 'line',
+                data: {
+                    labels: last7Days.map(d => d.label),
+                    datasets: [{
+                        label: 'Transactions',
+                        data: last7Days.map(d => d.count),
+                        borderColor: '#35CD8C',
+                        backgroundColor: 'rgba(53, 205, 140, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+
+            // Pie Chart - Amount ranges
+            const ranges = {
+                'Micro (< 0.001)': 0,
+                'Small (0.001-0.01)': 0,
+                'Medium (0.01-0.1)': 0,
+                'Large (> 0.1)': 0
+            };
+
+            paymentsData.forEach(p => {
+                const amount = parseFloat(p.amount);
+                if (amount < 0.001) ranges['Micro (< 0.001)']++;
+                else if (amount < 0.01) ranges['Small (0.001-0.01)']++;
+                else if (amount < 0.1) ranges['Medium (0.01-0.1)']++;
+                else ranges['Large (> 0.1)']++;
+            });
+
+            if (pieChart) pieChart.destroy();
+            const pieCtx = document.getElementById('pieChart').getContext('2d');
+            pieChart = new Chart(pieCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(ranges),
+                    datasets: [{
+                        data: Object.values(ranges),
+                        backgroundColor: ['#35CD8C', '#FCFF52', '#FF6384', '#36A2EB']
+                    }]
+                },
+                options: {
+                    responsive: true
+                }
+            });
+
+            // Hourly Activity
+            const hourly = new Array(24).fill(0);
+            paymentsData.forEach(p => {
+                hourly[p.timestamp.getHours()]++;
+            });
+
+            if (hourlyChart) hourlyChart.destroy();
+            const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
+            hourlyChart = new Chart(hourlyCtx, {
+                type: 'bar',
+                data: {
+                    labels: Array.from({length: 24}, (_, i) => i + ':00'),
+                    datasets: [{
+                        label: 'Transactions',
+                        data: hourly,
+                        backgroundColor: '#35CD8C'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+
+            // Top Payers
+            const payerMap = {};
+            paymentsData.forEach(p => {
+                const short = p.payer.substring(0, 10) + '...';
+                payerMap[short] = (payerMap[short] || 0) + parseFloat(p.amount);
+            });
+
+            const topPayers = Object.entries(payerMap)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5);
+
+            if (topPayersChart) topPayersChart.destroy();
+            const topPayersCtx = document.getElementById('topPayersChart').getContext('2d');
+            topPayersChart = new Chart(topPayersCtx, {
+                type: 'bar',
+                data: {
+                    labels: topPayers.map(p => p[0]),
+                    datasets: [{
+                        label: 'Total Paid (CELO)',
+                        data: topPayers.map(p => p[1]),
+                        backgroundColor: '#FCFF52',
+                        borderColor: '#35CD8C',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function generateQRCode() {
+            const amount = document.getElementById('qrAmount').value;
+            if (!amount || parseFloat(amount) <= 0) {
+                alert('Please enter a valid amount');
+                return;
+            }
+
+            const contractAddress = document.getElementById('contractSelect').value;
+            const qrData = `ethereum:${contractAddress}?value=${ethers.utils.parseEther(amount).toString()}`;
+
+            const qrContainer = document.getElementById('qrcode');
+            qrContainer.innerHTML = '';
+            
+            new QRCode(qrContainer, {
+                text: qrData,
+                width: 256,
+                height: 256,
+                colorDark: "#000000",
+                colorLight: "#ffffff"
+            });
+
+            document.getElementById('downloadQRBtn').style.display = 'inline-block';
+        }
+
+        function downloadQR() {
+            const canvas = document.querySelector('#qrcode canvas');
+            if (!canvas) return;
+
+            const url = canvas.toDataURL('image/png');
+            const link = document.createElement('a');
+            link.download = 'payment-qr-code.png';
+            link.href = url;
+            link.click();
+        }
+
+        function exportToCSV() {
+            if (paymentsData.length === 0) {
+                alert('No data to export');
+                return;
+            }
+
+            let csv = 'Index,Payer,Amount (CELO),Memo,Timestamp\n';
+            paymentsData.forEach(p => {
+                csv += `${p.index},"${p.payer}",${p.amount},"${p.memo}","${p.timestamp.toISOString()}"\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `payments_${Date.now()}.csv`;
+            link.click();
+        }
+
+        function exportToJSON() {
+            if (paymentsData.length === 0) {
+                alert('No data to export');
+                return;
+            }
+
+            const json = JSON.stringify(paymentsData, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `payments_${Date.now()}.json`;
+            link.click();
+        }
+
+        function printTable() {
+            window.print();
+        }
+
+        function filterByDate() {
+            // Implement date filtering logic
+            alert('Date filtering coming soon!');
+        }
+    </script>
+</body>
+</html>
