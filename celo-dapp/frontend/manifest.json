@@ -1,0 +1,48 @@
+{
+  "name": "Celo Payment System",
+  "short_name": "CeloPay",
+  "description": "Advanced payment system on Celo blockchain",
+  "start_url": "/CELO_builder_project/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#35CD8C",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "blockchain", "payments"],
+  "screenshots": [
+    {
+      "src": "screenshot1.png",
+      "sizes": "1280x720",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Send Payment",
+      "short_name": "Pay",
+      "description": "Send a new payment",
+      "url": "/CELO_builder_project/#payment",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "View Analytics",
+      "short_name": "Analytics",
+      "description": "View payment analytics",
+      "url": "/CELO_builder_project/analytics.html",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
