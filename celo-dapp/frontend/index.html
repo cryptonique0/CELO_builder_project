@@ -246,6 +246,57 @@
 
       <div class="section">
         <h3>💰 Send Payment</h3>
+          <div id="addressBookPanel" class="info" style="margin-bottom:10px;">
+            <b>Address Book</b>
+            <div id="addressBookList" style="margin:8px 0;"></div>
+            <input type="text" id="addressBookAddress" placeholder="0x..." style="width:60%;" />
+            <input type="text" id="addressBookLabel" placeholder="Label (e.g. Alice)" style="width:30%;" />
+            <button type="button" style="width:auto;" onclick="addAddressBookEntry()">Add</button>
+            <span id="addressBookStatus" style="font-size:12px; color:#666;"></span>
+          </div>
+              function renderAddressBook() {
+                const list = addressBook.getAll();
+                const container = document.getElementById('addressBookList');
+                if (!container) return;
+                if (list.length === 0) { container.innerHTML = '<em>No saved addresses.</em>'; return; }
+                container.innerHTML = list.map(e => `
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                    <span style="font-family:monospace;">${e.address}</span>
+                    <span style="background:#eee;padding:2px 8px;border-radius:12px;font-size:12px;">${e.label}</span>
+                    <button onclick="selectAddressBookEntry('${e.address}')" style="padding:2px 8px;">Use</button>
+                    <button onclick="removeAddressBookEntry('${e.address}')" style="padding:2px 8px;color:#F44336;">✕</button>
+                  </div>
+                `).join('');
+              }
+
+              function addAddressBookEntry() {
+                const addr = document.getElementById('addressBookAddress').value;
+                const label = document.getElementById('addressBookLabel').value;
+                const status = document.getElementById('addressBookStatus');
+                if (!addr) { status.textContent = 'Address required.'; status.style.color='#F44336'; return; }
+                if (addressBook.add(addr, label)) {
+                  status.textContent = 'Added.'; status.style.color='#35CD8C';
+                  document.getElementById('addressBookAddress').value = '';
+                  document.getElementById('addressBookLabel').value = '';
+                  renderAddressBook();
+                } else {
+                  status.textContent = 'Address already exists or invalid.'; status.style.color='#F44336';
+                }
+              }
+
+              function removeAddressBookEntry(addr) {
+                addressBook.remove(addr);
+                renderAddressBook();
+              }
+
+              function selectAddressBookEntry(addr) {
+                document.getElementById('paymentMemo').value = addressBook.getLabel(addr);
+                document.getElementById('paymentAmount').focus();
+                document.getElementById('addressBookAddress').value = addr;
+                toast.info('Selected', 'Address pasted to form', { duration: 1500 });
+              }
+
+              window.addEventListener('DOMContentLoaded', renderAddressBook);
         <label>
           Amount (CELO):
           <input type="number" id="paymentAmount" placeholder="0.001" step="0.001" value="0.001">
