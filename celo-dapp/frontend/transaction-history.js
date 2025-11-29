@@ -14,6 +14,8 @@ class TransactionHistory {
   // Initialize with provider
   init(provider) {
     this.provider = provider;
+    // Resume monitoring any pending transactions on load
+    this.resumePendingMonitoring();
   }
 
   // Load transactions from localStorage
@@ -110,6 +112,43 @@ class TransactionHistory {
         }));
       }
     }
+  }
+
+  // Resume monitoring for any transactions still pending
+  resumePendingMonitoring() {
+    const pending = this.transactions.filter(tx => tx.status === 'pending');
+    pending.forEach(p => {
+      // Light polling to update status if user refreshed before confirmation
+      this.pollForReceipt(p.hash);
+    });
+  }
+
+  // Poll for receipt (used when resuming)
+  async pollForReceipt(txHash) {
+    if (!this.provider) return;
+    const interval = setInterval(async () => {
+      try {
+        const receipt = await this.provider.getTransactionReceipt(txHash);
+        if (receipt) {
+          const txIndex = this.transactions.findIndex(tx => tx.hash === txHash);
+          if (txIndex !== -1) {
+            this.transactions[txIndex].status = receipt.status === 1 ? 'confirmed' : 'failed';
+            this.transactions[txIndex].blockNumber = receipt.blockNumber;
+            this.transactions[txIndex].gasUsed = receipt.gasUsed.toString();
+            this.transactions[txIndex].confirmations = 1;
+            this.saveToStorage();
+            window.dispatchEvent(new CustomEvent('transactionUpdated', { detail: this.transactions[txIndex] }));
+            clearInterval(interval);
+            // Start confirmation monitoring
+            this.monitorConfirmations(txHash);
+          }
+        }
+      } catch (e) {
+        clearInterval(interval);
+      }
+    }, 5000);
+    // safety stop after 7 minutes
+    setTimeout(() => clearInterval(interval), 420000);
   }
 
   // Monitor confirmation count
