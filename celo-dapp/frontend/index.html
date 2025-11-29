@@ -192,6 +192,9 @@
     </style>
   </head>
   <body>
+    <div style="position:fixed;top:18px;left:18px;z-index:1001;">
+      <button id="themeToggleBtn" style="padding:8px 18px;border-radius:20px;font-weight:600;background:#eee;color:#333;box-shadow:0 2px 8px rgba(0,0,0,0.08);" onclick="toggleTheme()">🌗 Toggle Theme</button>
+    </div>
     <div class="container">
       <div class="header">
         <h1>� Celo Payments</h1>
@@ -274,6 +277,19 @@
     </div>
 
     <script>
+        // Theme toggle
+        function toggleTheme() {
+          const dark = document.body.classList.toggle('dark-theme');
+          localStorage.setItem('celo_theme', dark ? 'dark' : 'light');
+          document.getElementById('themeToggleBtn').textContent = dark ? '🌞 Light Mode' : '🌗 Dark Mode';
+        }
+        window.addEventListener('DOMContentLoaded', () => {
+          const theme = localStorage.getItem('celo_theme');
+          if (theme === 'dark') {
+            document.body.classList.add('dark-theme');
+            document.getElementById('themeToggleBtn').textContent = '🌞 Light Mode';
+          }
+        });
       // Multiple deployed contracts - Choose which one to use
       const CONTRACTS = {
         primary: '0x0B33158062bEBDFc1E6Fe2fA43a6cec943331402',   // CA 1
@@ -326,6 +342,37 @@
           // Request account access
           const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
           userAddress = accounts[0];
+        body.dark-theme {
+          background: linear-gradient(135deg, #222 0%, #222 100%);
+          color: #eee;
+        }
+        body.dark-theme .container {
+          background: #222;
+          color: #eee;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+        }
+        body.dark-theme .section {
+          background: #333;
+          color: #eee;
+          border-left: 5px solid #FCFF52;
+        }
+        body.dark-theme h1, body.dark-theme h3, body.dark-theme .badge {
+          color: #FCFF52;
+        }
+        body.dark-theme input, body.dark-theme textarea {
+          background: #222;
+          color: #FCFF52;
+          border-color: #444;
+        }
+        body.dark-theme button {
+          background: linear-gradient(135deg, #FCFF52 0%, #35CD8C 100%);
+          color: #222;
+        }
+        body.dark-theme .info, body.dark-theme .success, body.dark-theme .error {
+          background: #222;
+          color: #FCFF52;
+          border-left: 4px solid #35CD8C;
+        }
 
           // Initialize ethers
           provider = new ethers.providers.Web3Provider(window.ethereum);
