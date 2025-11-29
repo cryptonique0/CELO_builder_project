@@ -549,15 +549,16 @@
 
           // Send transaction
           const toastLoading = toast.loading('Sending Transaction', 'Awaiting user confirmation...');
-          const tx = await contract.payWithMemo(memo, { value: ethers.utils.parseEther(amount) });
+          // Build gas overrides using selected speed
+          const overrides = await gasEstimator.buildTransaction({ to: CONTRACT_ADDR, value: ethers.utils.parseEther(amount) });
+          const tx = await contract.payWithMemo(memo, overrides);
           toast.dismiss(toastLoading);
-          const loadingToast = toast.transactionSent(tx.hash);
+          const loadingToastId = toast.transactionSent(tx.hash);
 
           // Track tx
-          txHistory.addTransaction({ hash: tx.hash, from: userAddress, to: CONTRACT_ADDR, value: ethers.utils.parseEther(amount).toString(), memo });
+          txHistory.addTransaction({ hash: tx.hash, from: userAddress, to: CONTRACT_ADDR, value: ethers.utils.parseEther(amount).toString(), memo, gasPrice: overrides.gasPrice.toString() });
           await tx.wait();
-          toast.dismiss(loadingToast);
-          toast.transactionConfirmed(tx.hash);
+          toast.transactionConfirmed(tx.hash, loadingToastId);
           
           await loadStats();
           await renderTxHistory();
