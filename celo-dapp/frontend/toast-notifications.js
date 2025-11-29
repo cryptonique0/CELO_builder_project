@@ -6,6 +6,7 @@
 class ToastNotification {
   constructor() {
     this.container = null;
+    this.maxToasts = 6;
     this.init();
   }
 
@@ -222,7 +223,8 @@ class ToastNotification {
       duration = 5000,
       action,
       link,
-      icon
+      icon,
+      dismissible = true
     } = options;
 
     const toast = document.createElement('div');
@@ -280,11 +282,13 @@ class ToastNotification {
     toast.appendChild(content);
 
     // Close button
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'toast-close';
-    closeBtn.innerHTML = '×';
-    closeBtn.onclick = () => this.dismiss(toast);
-    toast.appendChild(closeBtn);
+    if (dismissible) {
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'toast-close';
+      closeBtn.innerHTML = '×';
+      closeBtn.onclick = () => this.dismiss(toast);
+      toast.appendChild(closeBtn);
+    }
 
     // Progress bar (if duration is set)
     if (duration > 0 && type !== 'loading') {
@@ -295,6 +299,12 @@ class ToastNotification {
     }
 
     // Add to container
+    // Enforce stacking limit
+    if (this.container.children.length >= this.maxToasts) {
+      // Remove oldest (first child)
+      this.dismiss(this.container.firstChild);
+    }
+
     this.container.appendChild(toast);
 
     // Auto dismiss
@@ -345,88 +355,114 @@ class ToastNotification {
   }
 
   loading(title, message) {
-    return this.show({ 
-      type: 'loading', 
-      title, 
-      message, 
+    return this.show({
+      type: 'loading',
+      title,
+      message,
       duration: 0,
-      icon: '⏳'
+      icon: '⏳',
+      dismissible: false
     });
   }
 
   // Transaction-specific toasts
   transactionSent(txHash) {
-    return this.loading(
-      'Transaction Sent',
-      'Waiting for confirmation...',
-      {
-        link: {
-          label: 'View on CeloScan',
-          url: `https://celoscan.io/tx/${txHash}`
-        }
-      }
-    );
+    return this.show({
+      type: 'loading',
+      title: 'Transaction Sent',
+      message: 'Waiting for confirmation...',
+      duration: 0,
+      icon: '🕒',
+      link: { label: 'View on CeloScan', url: `https://celoscan.io/tx/${txHash}` },
+      dismissible: true
+    });
   }
 
   transactionConfirmed(txHash) {
-    return this.success(
-      'Transaction Confirmed',
-      'Your transaction was successful',
-      {
-        duration: 7000,
-        link: {
-          label: 'View on CeloScan',
-          url: `https://celoscan.io/tx/${txHash}`
-        }
-      }
-    );
+    return this.show({
+      type: 'success',
+      title: 'Transaction Confirmed',
+      message: 'Your transaction was successful',
+      duration: 7000,
+      icon: '✅',
+      link: { label: 'View on CeloScan', url: `https://celoscan.io/tx/${txHash}` }
+    });
   }
 
   transactionFailed(error) {
-    return this.error(
-      'Transaction Failed',
-      error || 'Please try again',
-      {
-        duration: 10000
-      }
-    );
+    return this.show({
+      type: 'error',
+      title: 'Transaction Failed',
+      message: (error || 'Please try again'),
+      duration: 10000,
+      icon: '❌'
+    });
   }
 
   walletConnected(address) {
     const shortAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
-    return this.success(
-      'Wallet Connected',
-      `Connected to ${shortAddress}`,
-      {
-        duration: 3000
-      }
-    );
+    return this.show({
+      type: 'success',
+      title: 'Wallet Connected',
+      message: `Connected to ${shortAddress}`,
+      duration: 3000,
+      icon: '🔌'
+    });
   }
 
   networkChanged(networkName) {
-    return this.info(
-      'Network Changed',
-      `Switched to ${networkName}`,
-      {
-        duration: 3000
-      }
-    );
+    return this.show({
+      type: 'info',
+      title: 'Network Changed',
+      message: `Switched to ${networkName}`,
+      duration: 3000,
+      icon: '🌐'
+    });
   }
 
   wrongNetwork(expectedNetwork) {
-    return this.warning(
-      'Wrong Network',
-      `Please switch to ${expectedNetwork}`,
-      {
-        duration: 0,
-        action: {
-          label: 'Switch Network',
-          onClick: () => {
-            window.dispatchEvent(new CustomEvent('switchNetworkRequested'));
-          }
-        }
-      }
-    );
+    return this.show({
+      type: 'warning',
+      title: 'Wrong Network',
+      message: `Please switch to ${expectedNetwork}`,
+      duration: 0,
+      icon: '⚠️',
+      action: { label: 'Switch Network', onClick: () => window.dispatchEvent(new CustomEvent('switchNetworkRequested')) }
+    });
+  }
+
+  addedToken(symbol) {
+    return this.show({
+      type: 'success',
+      title: 'Token Added',
+      message: `Custom token ${symbol} added`,
+      duration: 4000,
+      icon: '🪙'
+    });
+  }
+
+  gasSpeedChanged(speed) {
+    return this.show({
+      type: 'info',
+      title: 'Gas Speed Updated',
+      message: `Selected: ${speed.toUpperCase()}`,
+      duration: 2000,
+      icon: '⛽'
+    });
+  }
+
+  copied(label) {
+    return this.show({
+      type: 'info',
+      title: 'Copied',
+      message: `${label} copied to clipboard`,
+      duration: 1500,
+      icon: '📋'
+    });
+  }
+
+  dismissAll() {
+    Array.from(this.container.children).forEach(t => this.dismiss(t));
   }
 }
 
