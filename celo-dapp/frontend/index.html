@@ -21,6 +21,34 @@
         min-height: 100vh;
         color: #333;
       }
+      .network-indicator {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        z-index: 1000;
+        padding: 8px 14px;
+        border-radius: 30px;
+        font-size: 13px;
+        font-weight: 600;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        letter-spacing: .5px;
+        transition: background .3s, color .3s;
+      }
+      .network-ok { background: #35CD8C; color:#000; }
+      .network-bad { background: #ff5252; color:#fff; }
+      .network-indicator button {
+        background: rgba(255,255,255,0.25);
+        color: inherit;
+        padding: 4px 10px;
+        font-size: 12px;
+        border-radius: 20px;
+        width: auto;
+        box-shadow:none;
+      }
+      .network-indicator button:hover { background: rgba(255,255,255,0.4); transform:none; }
       .container {
         background: white;
         border-radius: 20px;
@@ -198,6 +226,10 @@
     </style>
   </head>
   <body>
+    <div id="networkIndicator" class="network-indicator network-bad" style="display:none;">
+      <span id="networkStatusText">Network: Unknown</span>
+      <button id="networkSwitchInline" onclick="switchToCelo()" style="display:none;">Switch</button>
+    </div>
     <div class="container">
       <div class="header">
         <h1>� Celo Payments</h1>
@@ -386,6 +418,9 @@
             document.getElementById('switchNetworkBtn').style.display = 'none';
           }
 
+          updateNetworkIndicator(chainId);
+          setupChainListeners();
+
           // Get balance
           await refreshBalance();
 
@@ -438,6 +473,7 @@
           document.getElementById('switchNetworkBtn').style.display = 'none';
           toast.networkChanged('Celo Mainnet');
           updateConnectionBar();
+          updateNetworkIndicator(REQUIRED_CHAIN_ID);
         } catch (e) {
           toast.error('Switch Failed', e.message);
         }
@@ -605,9 +641,48 @@
             if (accounts.length > 0) {
               await connect('metamask');
             }
+            // Show indicator even if not connected yet
+            updateNetworkIndicator(window.ethereum.chainId ? parseInt(window.ethereum.chainId, 16) : null);
+            setupChainListeners();
           }
         } catch {}
       });
+
+      function updateNetworkIndicator(chainId) {
+        const el = document.getElementById('networkIndicator');
+        if (!el) return;
+        el.style.display = 'flex';
+        const statusText = document.getElementById('networkStatusText');
+        const inlineSwitch = document.getElementById('networkSwitchInline');
+        if (chainId === REQUIRED_CHAIN_ID) {
+          el.classList.remove('network-bad');
+          el.classList.add('network-ok');
+          statusText.innerHTML = '✅ Celo Mainnet (42220)';
+          inlineSwitch.style.display = 'none';
+        } else {
+          el.classList.remove('network-ok');
+          el.classList.add('network-bad');
+          statusText.innerHTML = chainId ? `⚠ Wrong Network (${chainId})` : '⚠ Unknown Network';
+          inlineSwitch.style.display = 'inline-block';
+        }
+      }
+
+      function setupChainListeners() {
+        if (typeof window.ethereum === 'undefined') return;
+        if (window.ethereum._celoChainListenerAttached) return; // prevent duplicates
+        window.ethereum.on('chainChanged', (hexChainId) => {
+          const cid = parseInt(hexChainId, 16);
+          updateNetworkIndicator(cid);
+          if (cid !== REQUIRED_CHAIN_ID) {
+            document.getElementById('switchNetworkBtn').style.display = 'inline-block';
+            toast.wrongNetwork('Celo Mainnet');
+          } else {
+            document.getElementById('switchNetworkBtn').style.display = 'none';
+            toast.networkChanged('Celo Mainnet');
+          }
+        });
+        window.ethereum._celoChainListenerAttached = true;
+      }
 
       // Render tx history
       async function renderTxHistory() {
