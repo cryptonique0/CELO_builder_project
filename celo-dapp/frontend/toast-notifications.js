@@ -6,7 +6,9 @@
 class ToastNotification {
   constructor() {
     this.container = null;
-    this.maxToasts = 6;
+    this.activeToasts = new Map();
+    this.maxVisible = 5;
+    this.toastCounter = 0;
     this.init();
   }
 
@@ -224,11 +226,15 @@ class ToastNotification {
       action,
       link,
       icon,
-      dismissible = true
+      id
     } = options;
 
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
+    const toastId = id || `toast_${Date.now()}_${++this.toastCounter}`;
+    toast.setAttribute('data-toast-id', toastId);
+    toast.setAttribute('role','alert');
+    toast.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
 
     // Icon
     const iconEl = document.createElement('div');
@@ -282,13 +288,11 @@ class ToastNotification {
     toast.appendChild(content);
 
     // Close button
-    if (dismissible) {
-      const closeBtn = document.createElement('button');
-      closeBtn.className = 'toast-close';
-      closeBtn.innerHTML = '×';
-      closeBtn.onclick = () => this.dismiss(toast);
-      toast.appendChild(closeBtn);
-    }
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'toast-close';
+    closeBtn.innerHTML = '×';
+    closeBtn.onclick = () => this.dismiss(toast);
+    toast.appendChild(closeBtn);
 
     // Progress bar (if duration is set)
     if (duration > 0 && type !== 'loading') {
@@ -298,31 +302,44 @@ class ToastNotification {
       toast.appendChild(progress);
     }
 
-    // Add to container
-    // Enforce stacking limit
-    if (this.container.children.length >= this.maxToasts) {
-      // Remove oldest (first child)
-      this.dismiss(this.container.firstChild);
+    // Enforce stacking limit (do not remove loading toasts prematurely)
+    const currentToasts = Array.from(this.container.querySelectorAll('.toast'));
+    if (currentToasts.length >= this.maxVisible) {
+      // Remove oldest non-loading toast
+      const removable = currentToasts.find(t => !t.classList.contains('loading')) || currentToasts[0];
+      this.dismiss(removable);
     }
 
     this.container.appendChild(toast);
+    this.activeToasts.set(toastId, toast);
 
     // Auto dismiss
     if (duration > 0 && type !== 'loading') {
       setTimeout(() => this.dismiss(toast), duration);
     }
 
-    return toast;
+    return toastId;
   }
 
   // Dismiss toast
   dismiss(toast) {
-    toast.classList.add('hiding');
+    const el = typeof toast === 'string' ? this.activeToasts.get(toast) : toast;
+    if (!el) return;
+    el.classList.add('hiding');
+    const tid = el.getAttribute('data-toast-id');
     setTimeout(() => {
-      if (toast.parentNode) {
-        toast.parentNode.removeChild(toast);
+      if (el.parentNode) {
+        el.parentNode.removeChild(el);
       }
+      if (tid) this.activeToasts.delete(tid);
     }, 300);
+  }
+
+  // Dismiss all toasts
+  dismissAll() {
+    for (const id of Array.from(this.activeToasts.keys())) {
+      this.dismiss(id);
+    }
   }
 
   // Get default icon for type
@@ -360,109 +377,83 @@ class ToastNotification {
       title,
       message,
       duration: 0,
-      icon: '⏳',
-      dismissible: false
+      icon: '⏳'
     });
   }
 
   // Transaction-specific toasts
   transactionSent(txHash) {
-    return this.show({
-      type: 'loading',
-      title: 'Transaction Sent',
-      message: 'Waiting for confirmation...',
-      duration: 0,
-      icon: '🕒',
-      link: { label: 'View on CeloScan', url: `https://celoscan.io/tx/${txHash}` },
-      dismissible: true
-    });
+    const id = this.loading('Transaction Sent', 'Waiting for confirmation...');
+    // Append link after creation
+    const toastEl = this.activeToasts.get(id);
+    if (toastEl) {
+      const linkEl = document.createElement('a');
+      linkEl.className = 'toast-link';
+      linkEl.href = `https://celoscan.io/tx/${txHash}`;
+      linkEl.target = '_blank';
+      linkEl.rel = 'noopener noreferrer';
+      linkEl.innerHTML = 'View on CeloScan →';
+      toastEl.querySelector('.toast-content').appendChild(linkEl);
+    }
+    return id;
   }
 
-  transactionConfirmed(txHash) {
-    return this.show({
-      type: 'success',
-      title: 'Transaction Confirmed',
-      message: 'Your transaction was successful',
-      duration: 7000,
-      icon: '✅',
-      link: { label: 'View on CeloScan', url: `https://celoscan.io/tx/${txHash}` }
-    });
+  transactionConfirmed(txHash, previousId = null) {
+    if (previousId) this.dismiss(previousId);
+    const id = this.success('Transaction Confirmed', 'Your transaction was successful', { duration: 7000 });
+    const el = this.activeToasts.get(id);
+    if (el) {
+      const linkEl = document.createElement('a');
+      linkEl.className = 'toast-link';
+      linkEl.href = `https://celoscan.io/tx/${txHash}`;
+      linkEl.target = '_blank';
+      linkEl.rel = 'noopener noreferrer';
+      linkEl.innerHTML = 'View on CeloScan →';
+      el.querySelector('.toast-content').appendChild(linkEl);
+    }
+    return id;
   }
 
-  transactionFailed(error) {
-    return this.show({
-      type: 'error',
-      title: 'Transaction Failed',
-      message: (error || 'Please try again'),
-      duration: 10000,
-      icon: '❌'
-    });
+  transactionFailed(error, previousId = null) {
+    if (previousId) this.dismiss(previousId);
+    return this.error('Transaction Failed', error || 'Please try again', { duration: 10000 });
   }
 
   walletConnected(address) {
     const shortAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
-    return this.show({
-      type: 'success',
-      title: 'Wallet Connected',
-      message: `Connected to ${shortAddress}`,
-      duration: 3000,
-      icon: '🔌'
-    });
+    return this.success(
+      'Wallet Connected',
+      `Connected to ${shortAddress}`,
+      {
+        duration: 3000
+      }
+    );
   }
 
   networkChanged(networkName) {
-    return this.show({
-      type: 'info',
-      title: 'Network Changed',
-      message: `Switched to ${networkName}`,
-      duration: 3000,
-      icon: '🌐'
-    });
+    return this.info(
+      'Network Changed',
+      `Switched to ${networkName}`,
+      {
+        duration: 3000
+      }
+    );
   }
 
   wrongNetwork(expectedNetwork) {
-    return this.show({
-      type: 'warning',
-      title: 'Wrong Network',
-      message: `Please switch to ${expectedNetwork}`,
-      duration: 0,
-      icon: '⚠️',
-      action: { label: 'Switch Network', onClick: () => window.dispatchEvent(new CustomEvent('switchNetworkRequested')) }
-    });
-  }
-
-  addedToken(symbol) {
-    return this.show({
-      type: 'success',
-      title: 'Token Added',
-      message: `Custom token ${symbol} added`,
-      duration: 4000,
-      icon: '🪙'
-    });
-  }
-
-  gasSpeedChanged(speed) {
-    return this.show({
-      type: 'info',
-      title: 'Gas Speed Updated',
-      message: `Selected: ${speed.toUpperCase()}`,
-      duration: 2000,
-      icon: '⛽'
-    });
-  }
-
-  copied(label) {
-    return this.show({
-      type: 'info',
-      title: 'Copied',
-      message: `${label} copied to clipboard`,
-      duration: 1500,
-      icon: '📋'
-    });
-  }
-
-  dismissAll() {
-    Array.from(this.container.children).forEach(t => this.dismiss(t));
+    return this.warning(
+      'Wrong Network',
+      `Please switch to ${expectedNetwork}`,
+      {
+        duration: 0,
+        action: {
+          label: 'Switch Network',
+          onClick: () => {
+            window.dispatchEvent(new CustomEvent('switchNetworkRequested'));
+          }
+        }
+      }
+    );
   }
 }
 
