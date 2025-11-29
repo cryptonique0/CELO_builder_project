@@ -267,7 +267,10 @@
             <option value="tertiary">CA 3: 0x5d0F...c75D</option>
           </select>
           <strong>Full Address:</strong><br>
-          <span id="contractAddr" style="font-family: monospace; word-break: break-all;">Loading...</span>
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span id="contractAddr" style="font-family: monospace; word-break: break-all;">Loading...</span>
+            <button type="button" id="copyContractBtn" style="width:auto; padding:6px 12px;" onclick="copyContractAddress()">📋 Copy Contract</button>
+          </div>
         </div>
         <div id="gasPanel" class="info" style="display:none; margin-top:10px;"></div>
         <button onclick="loadStats()">Refresh Stats</button>
@@ -482,6 +485,11 @@
       function copyAddress() {
         navigator.clipboard.writeText(userAddress || '');
         toast.info('Copied', 'Address copied to clipboard', { duration: 1500 });
+      }
+      function copyContractAddress() {
+        const addr = CONTRACT_ADDR;
+        navigator.clipboard.writeText(addr);
+        toast.info('Copied', 'Contract address copied', { duration: 1500 });
       }
 
       async function loadStats() {
