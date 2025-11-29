@@ -269,7 +269,7 @@
           <strong>Full Address:</strong><br>
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
             <span id="contractAddr" style="font-family: monospace; word-break: break-all;">Loading...</span>
-            <button type="button" id="copyContractBtn" style="width:auto; padding:6px 12px;" onclick="copyContractAddress()">📋 Copy Contract</button>
+            <button type="button" id="copyContractBtn" style="width:auto; padding:6px 12px;" onclick="copyContractAddress()">📋 Copy</button>
           </div>
         </div>
         <div id="gasPanel" class="info" style="display:none; margin-top:10px;"></div>
@@ -486,9 +486,9 @@
         navigator.clipboard.writeText(userAddress || '');
         toast.info('Copied', 'Address copied to clipboard', { duration: 1500 });
       }
+
       function copyContractAddress() {
-        const addr = CONTRACT_ADDR;
-        navigator.clipboard.writeText(addr);
+        navigator.clipboard.writeText(CONTRACT_ADDR || '');
         toast.info('Copied', 'Contract address copied', { duration: 1500 });
       }
 
