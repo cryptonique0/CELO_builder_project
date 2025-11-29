@@ -274,6 +274,25 @@
       </div>
 
       <div id="status"></div>
+      <div class="section">
+        <h3>📊 Performance Stats</h3>
+        <div id="statsPanel" class="info" style="min-height:60px;">Loading stats...</div>
+        <button onclick="refreshStatsPanel()">Refresh Stats</button>
+      </div>
+          function refreshStatsPanel() {
+            if (!window.txHistory) return;
+            const stats = txHistory.getStats();
+            const html = `
+              <div><b>Total Transactions:</b> ${stats.total}</div>
+              <div><b>Confirmed:</b> ${stats.confirmed} <span style="color:#4CAF50">(${stats.successRate}% success)</span></div>
+              <div><b>Pending:</b> ${stats.pending}</div>
+              <div><b>Failed:</b> ${stats.failed}</div>
+              <div><b>Total Value Sent:</b> ${stats.totalValue} CELO</div>
+              <div><b>Total Gas Used:</b> ${stats.totalGasUsed}</div>
+            `;
+            document.getElementById('statsPanel').innerHTML = html;
+          }
+          window.addEventListener('DOMContentLoaded', refreshStatsPanel);
     </div>
 
     <script>
