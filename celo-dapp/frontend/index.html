@@ -4,7 +4,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Celo SimplePayments</title>
-    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <!-- App modules -->
+  <script src="wallet-connector.js"></script>
+  <script src="toast-notifications.js"></script>
+  <script src="transaction-history.js"></script>
+  <script src="gas-estimator.js"></script>
+  <script src="token-manager.js"></script>
     <style>
       body {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -201,10 +207,21 @@
 
       <div class="section">
         <h3>🔗 Connect Wallet</h3>
-        <button id="connectBtn" onclick="connectWallet()">Connect MetaMask</button>
-        <div id="walletInfo" style="display:none;" class="info">
-          <strong>Connected:</strong> <span id="walletAddress"></span><br>
-          <strong>Balance:</strong> <span id="walletBalance"></span> CELO
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+          <button id="connectMetaMask" onclick="connect('metamask')">🦊 MetaMask</button>
+          <button id="connectCoinbase" onclick="connect('coinbase')">💎 Coinbase</button>
+          <button id="connectWC" onclick="connect('walletconnect')">📱 WalletConnect</button>
+        </div>
+        <div class="info" id="connectionBar" style="display:none; align-items:center; gap:10px;">
+          <div><strong>Status:</strong> <span id="connStatus">Disconnected</span></div>
+          <div><strong>Network:</strong> <span id="connNetwork">-</span></div>
+          <div>
+            <strong>Account:</strong> 
+            <span id="walletAddress"></span>
+            <button style="margin-left:6px; padding:6px 10px;" onclick="copyAddress()">📋 Copy</button>
+          </div>
+          <div><strong>Balance:</strong> <span id="walletBalance">0</span> <span id="balanceSymbol">CELO</span></div>
+          <button id="switchNetworkBtn" style="background:#ff9800" onclick="switchToCelo()">Switch to Celo Mainnet</button>
         </div>
       </div>
 
@@ -220,6 +237,7 @@
           <strong>Full Address:</strong><br>
           <span id="contractAddr" style="font-family: monospace; word-break: break-all;">Loading...</span>
         </div>
+        <div id="gasPanel" class="info" style="display:none; margin-top:10px;"></div>
         <button onclick="loadStats()">Refresh Stats</button>
         <div class="stats" id="statsContainer" style="display:none;">
           <div class="stat-card">
@@ -244,6 +262,10 @@
       <div class="section">
         <h3>💰 Send Payment</h3>
         <label>
+          Token:
+          <select id="tokenSelect"></select>
+        </label>
+        <label>
           Amount (CELO):
           <input type="number" id="paymentAmount" placeholder="0.001" step="0.001" value="0.001">
         </label>
@@ -252,6 +274,18 @@
           <textarea id="paymentMemo" placeholder="Payment note..." rows="2"></textarea>
         </label>
         <button onclick="sendPayment()">Send Payment</button>
+        <div id="txPreview" class="info" style="display:none; margin-top:10px;"></div>
+      </div>
+
+      <div class="section">
+        <h3>🧾 Recent Transactions</h3>
+        <div id="txHistory" class="info" style="max-height:240px; overflow:auto;">
+          <em>No transactions yet.</em>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:8px;">
+          <button onclick="exportHistory()">Export CSV</button>
+          <button onclick="clearHistory()">Clear History</button>
+        </div>
       </div>
 
       <div class="section" style="display:none;" id="ownerSection">
@@ -281,10 +315,11 @@
         tertiary: '0x5d0F9219728cc9110577122875966254aaA9c75D'   // CA 3
       };
       
-      // Using primary contract
+  // Using primary contract
       let CONTRACT_ADDR = CONTRACTS.primary;
       
-      let provider, signer, contract, userAddress;
+  let provider, signer, contract, userAddress;
+  const REQUIRED_CHAIN_ID = 42220; // Celo Mainnet
       
       const CONTRACT_ABI = [
         "function payWithMemo(string memory memo) external payable",
@@ -302,6 +337,25 @@
       // Initialize
       document.getElementById('contractAddr').textContent = CONTRACT_ADDR;
 
+      // Populate token selector
+      function populateTokens() {
+        const sel = document.getElementById('tokenSelect');
+        sel.innerHTML = '';
+        const tokens = tokenManager.getAllTokens();
+        tokens.forEach(t => {
+          const opt = document.createElement('option');
+          opt.value = t.symbol;
+          opt.textContent = `${t.icon} ${t.symbol} - ${t.name}`;
+          sel.appendChild(opt);
+        });
+        sel.value = tokenManager.selectedToken;
+        sel.onchange = async () => {
+          tokenManager.selectToken(sel.value);
+          document.getElementById('balanceSymbol').textContent = sel.value;
+          await refreshBalance();
+        };
+      }
+
       function switchContract() {
         const selected = document.getElementById('contractSelect').value;
         CONTRACT_ADDR = CONTRACTS[selected];
@@ -316,43 +370,30 @@
         showStatus('Switched to ' + selected + ' contract', 'info');
       }
 
-      async function connectWallet() {
+      async function connect(walletId = 'metamask') {
         try {
-          if (typeof window.ethereum === 'undefined') {
-            showStatus('Please install MetaMask!', 'error');
-            return;
-          }
-
-          // Request account access
-          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-          userAddress = accounts[0];
-
-          // Initialize ethers
-          provider = new ethers.providers.Web3Provider(window.ethereum);
-          signer = provider.getSigner();
+          const { provider: p, signer: s, address, chainId } = await walletConnector.connect(walletId);
+          provider = p; signer = s; userAddress = address;
+          txHistory.init(provider);
+          gasEstimator.init(provider);
           contract = new ethers.Contract(CONTRACT_ADDR, CONTRACT_ABI, signer);
 
-          // Check if on Celo Mainnet
-          const network = await provider.getNetwork();
-          if (network.chainId !== 42220) {
-            showStatus('Please switch to Celo Mainnet (Chain ID: 42220)', 'error');
-            return;
+          // Check network and prompt switch if wrong
+          if (chainId !== REQUIRED_CHAIN_ID) {
+            document.getElementById('switchNetworkBtn').style.display = 'inline-block';
+            toast.wrongNetwork('Celo Mainnet');
+          } else {
+            document.getElementById('switchNetworkBtn').style.display = 'none';
           }
 
           // Get balance
-          const balance = await provider.getBalance(userAddress);
-          const balanceCelo = ethers.utils.formatEther(balance);
+          await refreshBalance();
 
           // Update UI
-          document.getElementById('walletAddress').textContent = 
-            userAddress.substring(0, 6) + '...' + userAddress.substring(38);
-          document.getElementById('walletBalance').textContent = 
-            parseFloat(balanceCelo).toFixed(4);
-          document.getElementById('walletInfo').style.display = 'block';
-          document.getElementById('connectBtn').textContent = '✅ Connected';
-          document.getElementById('connectBtn').disabled = true;
-
-          showStatus('Wallet connected successfully!', 'success');
+          updateConnectionBar();
+          document.getElementById('connectionBar').style.display = 'flex';
+          toast.walletConnected(userAddress);
+          populateTokens();
 
           // Check if user is owner
           try {
@@ -366,11 +407,45 @@
 
           // Load stats
           await loadStats();
+          await renderTxHistory();
 
         } catch (error) {
           console.error('Connection error:', error);
           showStatus('Failed to connect wallet: ' + error.message, 'error');
+          toast.error('Connection Failed', error.message);
         }
+      }
+
+      async function refreshBalance() {
+        if (!provider || !userAddress) return;
+        tokenManager.init(provider, signer, userAddress);
+        const symbol = tokenManager.getSelectedToken().symbol;
+        const bal = await tokenManager.getBalance(symbol, userAddress);
+        document.getElementById('walletBalance').textContent = parseFloat(bal).toFixed(4);
+        document.getElementById('balanceSymbol').textContent = symbol;
+      }
+
+      function updateConnectionBar() {
+        const shortAddr = userAddress.substring(0,6) + '...' + userAddress.substring(38);
+        document.getElementById('connStatus').textContent = 'Connected';
+        document.getElementById('connNetwork').textContent = walletConnector.getNetworkName(walletConnector.chainId || REQUIRED_CHAIN_ID);
+        document.getElementById('walletAddress').textContent = shortAddr;
+      }
+
+      async function switchToCelo() {
+        try {
+          await walletConnector.switchNetwork(REQUIRED_CHAIN_ID);
+          document.getElementById('switchNetworkBtn').style.display = 'none';
+          toast.networkChanged('Celo Mainnet');
+          updateConnectionBar();
+        } catch (e) {
+          toast.error('Switch Failed', e.message);
+        }
+      }
+
+      function copyAddress() {
+        navigator.clipboard.writeText(userAddress || '');
+        toast.info('Copied', 'Address copied to clipboard', { duration: 1500 });
       }
 
       async function loadStats() {
@@ -412,23 +487,41 @@
             return;
           }
 
-          showStatus('Sending payment...', 'info');
+          // Build transaction preview and estimation
+          const baseTx = { to: CONTRACT_ADDR, value: ethers.utils.parseEther(amount) };
+          const estimation = await gasEstimator.getCompleteEstimation({ ...baseTx, from: userAddress });
+          document.getElementById('gasPanel').style.display = 'block';
+          document.getElementById('gasPanel').innerHTML = gasEstimator.generateEstimationUI(estimation.estimations);
 
-          const tx = await contract.payWithMemo(memo, {
-            value: ethers.utils.parseEther(amount)
+          // Click handler to choose speed
+          document.querySelectorAll('.gas-option').forEach(el => {
+            el.onclick = () => gasEstimator.selectSpeed(el.getAttribute('data-speed'));
           });
 
-          showStatus('Transaction sent! Waiting for confirmation...', 'info');
-          await tx.wait();
+          const preview = `Preparing to send <b>${amount} ${tokenManager.getSelectedToken().symbol}</b> to contract with memo: "${memo}"`;
+          const txPrev = document.getElementById('txPreview');
+          txPrev.style.display = 'block';
+          txPrev.innerHTML = preview;
 
-          showStatus(`Payment sent successfully! TX: ${tx.hash}`, 'success');
+          // Send transaction
+          const toastLoading = toast.loading('Sending Transaction', 'Awaiting user confirmation...');
+          const tx = await contract.payWithMemo(memo, { value: ethers.utils.parseEther(amount) });
+          toast.dismiss(toastLoading);
+          const loadingToast = toast.transactionSent(tx.hash);
+
+          // Track tx
+          txHistory.addTransaction({ hash: tx.hash, from: userAddress, to: CONTRACT_ADDR, value: ethers.utils.parseEther(amount).toString(), memo });
+          await tx.wait();
+          toast.dismiss(loadingToast);
+          toast.transactionConfirmed(tx.hash);
           
-          // Reload stats
           await loadStats();
+          await renderTxHistory();
 
         } catch (error) {
           console.error('Payment error:', error);
           showStatus('Payment failed: ' + error.message, 'error');
+          toast.transactionFailed(error.message);
         }
       }
 
@@ -506,28 +599,34 @@
 
       // Auto-connect if previously connected
       window.addEventListener('load', async () => {
-        if (typeof window.ethereum !== 'undefined') {
-          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-          if (accounts.length > 0) {
-            await connectWallet();
+        try {
+          if (typeof window.ethereum !== 'undefined') {
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            if (accounts.length > 0) {
+              await connect('metamask');
+            }
           }
-        }
+        } catch {}
       });
 
-      // Handle account changes
-      if (typeof window.ethereum !== 'undefined') {
-        window.ethereum.on('accountsChanged', (accounts) => {
-          if (accounts.length === 0) {
-            location.reload();
-          } else {
-            connectWallet();
-          }
-        });
-
-        window.ethereum.on('chainChanged', () => {
-          location.reload();
-        });
+      // Render tx history
+      async function renderTxHistory() {
+        const container = document.getElementById('txHistory');
+        const items = txHistory.getRecent(20).map(tx => txHistory.formatTransaction(tx));
+        if (items.length === 0) { container.innerHTML = '<em>No transactions yet.</em>'; return; }
+        container.innerHTML = items.map(tx => `
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:8px; border-bottom:1px solid #eee;">
+            <div>
+              <div style="font-weight:600; color:${tx.statusColor}">${tx.statusIcon} ${tx.status.toUpperCase()} · ${tx.valueFormatted} CELO</div>
+              <div style="font-size:12px; color:#666">${tx.timestampFormatted}</div>
+              <a href="${tx.explorerUrl}" target="_blank" rel="noopener noreferrer" style="font-size:12px">View on CeloScan ↗</a>
+            </div>
+            <button onclick="navigator.clipboard.writeText('${tx.hash}')">Copy Hash</button>
+          </div>`).join('');
       }
+
+      function exportHistory() { txHistory.downloadCSV(); }
+      function clearHistory() { txHistory.clear(); renderTxHistory(); }
     </script>
   </body>
 </html>
