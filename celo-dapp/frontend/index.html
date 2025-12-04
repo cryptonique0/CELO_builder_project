@@ -15,6 +15,37 @@
         min-height: 100vh;
         color: #333;
       }
+      body.dark-theme {
+        background: linear-gradient(135deg, #222 0%, #222 100%);
+        color: #eee;
+      }
+      body.dark-theme .container {
+        background: #222;
+        color: #eee;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+      }
+      body.dark-theme .section {
+        background: #333;
+        color: #eee;
+        border-left: 5px solid #FCFF52;
+      }
+      body.dark-theme h1, body.dark-theme h3, body.dark-theme .badge {
+        color: #FCFF52;
+      }
+      body.dark-theme input, body.dark-theme textarea {
+        background: #222;
+        color: #FCFF52;
+        border-color: #444;
+      }
+      body.dark-theme button {
+        background: linear-gradient(135deg, #FCFF52 0%, #35CD8C 100%);
+        color: #222;
+      }
+      body.dark-theme .info, body.dark-theme .success, body.dark-theme .error {
+        background: #222;
+        color: #FCFF52;
+        border-left: 4px solid #35CD8C;
+      }
       .container {
         background: white;
         border-radius: 20px;
@@ -196,6 +227,11 @@
       <button id="themeToggleBtn" style="padding:8px 18px;border-radius:20px;font-weight:600;background:#eee;color:#333;box-shadow:0 2px 8px rgba(0,0,0,0.08);" onclick="toggleTheme()">🌗 Toggle Theme</button>
     </div>
     <div class="container">
+            <div class="section">
+              <h3>🔔 Recent Payments (Live)</h3>
+              <div id="eventStreamPanel" class="info" style="min-height:60px;">No events yet.</div>
+              <button onclick="refreshEventStream()">Refresh Events</button>
+            </div>
       <div class="header">
         <h1>� Celo Payments</h1>
         <p class="subtitle">Decentralized Payment DApp</p>
@@ -305,7 +341,9 @@
           Memo (optional):
           <textarea id="paymentMemo" placeholder="Payment note..." rows="2"></textarea>
         </label>
-        <button onclick="sendPayment()">Send Payment</button>
+        <div id="txPreview" class="info" style="display:none;margin-bottom:10px;"></div>
+        <button onclick="previewTransaction()">Preview Payment</button>
+        <button id="sendPaymentBtn" onclick="sendPayment()" style="display:none;">Send Payment</button>
       </div>
 
       <div class="section" style="display:none;" id="ownerSection">
@@ -329,27 +367,120 @@
         <h3>📊 Performance Stats</h3>
         <div id="statsPanel" class="info" style="min-height:60px;">Loading stats...</div>
         <button onclick="refreshStatsPanel()">Refresh Stats</button>
+        <button onclick="downloadStatsCSV()">Download CSV</button>
       </div>
-          function refreshStatsPanel() {
-            if (!window.txHistory) return;
-            const stats = txHistory.getStats();
-            const html = `
-              <div><b>Total Transactions:</b> ${stats.total}</div>
-              <div><b>Confirmed:</b> ${stats.confirmed} <span style="color:#4CAF50">(${stats.successRate}% success)</span></div>
-              <div><b>Pending:</b> ${stats.pending}</div>
-              <div><b>Failed:</b> ${stats.failed}</div>
-              <div><b>Total Value Sent:</b> ${stats.totalValue} CELO</div>
-              <div><b>Total Gas Used:</b> ${stats.totalGasUsed}</div>
-            `;
-            document.getElementById('statsPanel').innerHTML = html;
+        // Load transaction-history.js
+        let txHistory;
+        (async function() {
+          const module = await import('./transaction-history.js');
+          txHistory = module.txHistory || window.txHistory;
+          refreshStatsPanel();
+        })();
+
+        function refreshStatsPanel() {
+          if (!txHistory) return;
+          const stats = txHistory.getStats();
+          const html = `
+            <div><b>Total Transactions:</b> ${stats.total}</div>
+            <div><b>Confirmed:</b> ${stats.confirmed} <span style="color:#4CAF50">(${stats.successRate}% success)</span></div>
+            <div><b>Pending:</b> ${stats.pending}</div>
+            <div><b>Failed:</b> ${stats.failed}</div>
+            <div><b>Total Value Sent:</b> ${stats.totalValue} CELO</div>
+            <div><b>Total Gas Used:</b> ${stats.totalGasUsed}</div>
+          `;
+          document.getElementById('statsPanel').innerHTML = html;
+        }
+
+        function downloadStatsCSV() {
+          if (txHistory && typeof txHistory.downloadCSV === 'function') {
+            txHistory.downloadCSV();
           }
-          window.addEventListener('DOMContentLoaded', refreshStatsPanel);
+        }
+
+        // Update stats panel on transaction events
+        window.addEventListener('transactionUpdated', refreshStatsPanel);
     </div>
 
     <script>
+                    // Load contract-event-listener.js
+                    let contractEventListener;
+                    (async function() {
+                      const module = await import('./contract-event-listener.js');
+                      contractEventListener = module.contractEventListener || window.contractEventListener;
+                    })();
+
+                    function refreshEventStream() {
+                      if (!contractEventListener) return;
+                      const events = contractEventListener.getRecent();
+                      const html = events.length === 0
+                        ? '<em>No events yet.</em>'
+                        : events.map(e => `
+                            <div style="margin-bottom:8px;padding:8px;border-radius:8px;background:#fff;color:#333;">
+                              <b>Payer:</b> <span style="font-family:monospace;">${e.payer}</span><br>
+                              <b>Amount:</b> ${e.amount} CELO<br>
+                              <b>Memo:</b> ${e.memo}<br>
+                              <b>Block:</b> ${e.blockNumber} <b>TX:</b> <a href="https://celoscan.io/tx/${e.txHash}" target="_blank">${e.txHash.slice(0,10)}...</a>
+                              <span style="float:right;font-size:12px;color:#888;">${new Date(e.timestamp).toLocaleString()}</span>
+                            </div>
+                          `).join('');
+                      document.getElementById('eventStreamPanel').innerHTML = html;
+                    }
+
+                    // Re-render event stream on new Paid events
+                    window.addEventListener('contractPaidEvent', refreshEventStream);
+
+                    // Initialize event listener after wallet connect
+                    async function connectWallet() {
+                      // ...existing code...
+                        // Initialize contract event listener
+                        if (contractEventListener && contract) {
+                          contractEventListener.init(contract);
+                          refreshEventStream();
+                        }
+                      // ...existing code...
+                    }
+              // Load tx-preview-decoder.js
+              let txPreviewDecoder;
+              (async function() {
+                const module = await import('./tx-preview-decoder.js');
+                txPreviewDecoder = module.txPreviewDecoder || window.txPreviewDecoder;
+              })();
+
+              function previewTransaction() {
+                const memo = document.getElementById('paymentMemo').value || '';
+                const iface = new ethers.utils.Interface(["function payWithMemo(string memo)"]);
+                const data = iface.encodeFunctionData("payWithMemo", [memo]);
+                let preview;
+                if (txPreviewDecoder && typeof txPreviewDecoder.decode === 'function') {
+                  preview = txPreviewDecoder.decode(data);
+                } else {
+                  preview = { summary: `Send payment with memo: "${memo}"` };
+                }
+                const previewDiv = document.getElementById('txPreview');
+                if (preview.error) {
+                  previewDiv.textContent = preview.error;
+                  previewDiv.className = 'error';
+                } else {
+                  previewDiv.textContent = preview.summary;
+                  previewDiv.className = 'info';
+                }
+                previewDiv.style.display = 'block';
+                document.getElementById('sendPaymentBtn').style.display = 'inline-block';
+              }
+
+              // Hide preview and send button on memo/amount change
+              document.getElementById('paymentMemo').addEventListener('input', () => {
+                document.getElementById('txPreview').style.display = 'none';
+                document.getElementById('sendPaymentBtn').style.display = 'none';
+              });
+              document.getElementById('paymentAmount').addEventListener('input', () => {
+                document.getElementById('txPreview').style.display = 'none';
+                document.getElementById('sendPaymentBtn').style.display = 'none';
+              });
         // Theme toggle
         function toggleTheme() {
-          const dark = document.body.classList.toggle('dark-theme');
+          const dark = !document.body.classList.contains('dark-theme');
+          document.body.classList.toggle('dark-theme', dark);
           localStorage.setItem('celo_theme', dark ? 'dark' : 'light');
           document.getElementById('themeToggleBtn').textContent = dark ? '🌞 Light Mode' : '🌗 Dark Mode';
         }
@@ -358,6 +489,9 @@
           if (theme === 'dark') {
             document.body.classList.add('dark-theme');
             document.getElementById('themeToggleBtn').textContent = '🌞 Light Mode';
+          } else {
+            document.body.classList.remove('dark-theme');
+            document.getElementById('themeToggleBtn').textContent = '🌗 Dark Mode';
           }
         });
       // Multiple deployed contracts - Choose which one to use
