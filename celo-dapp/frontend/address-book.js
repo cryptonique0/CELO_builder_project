@@ -43,6 +43,39 @@ class AddressBook {
     const entry = this.entries.find(e => e.address.toLowerCase() === address.toLowerCase());
     return entry ? entry.label : '';
   }
+
+  // Search addresses by label or partial address
+  search(query) {
+    const q = query.toLowerCase();
+    return this.entries.filter(e => 
+      e.label.toLowerCase().includes(q) || 
+      e.address.toLowerCase().includes(q)
+    );
+  }
+
+  // Export as JSON for backup
+  export() {
+    return JSON.stringify(this.entries, null, 2);
+  }
+
+  // Import from JSON
+  import(jsonData) {
+    try {
+      const parsed = JSON.parse(jsonData);
+      if (Array.isArray(parsed)) {
+        this.entries = parsed;
+        this.save();
+        return true;
+      }
+    } catch {
+      return false;
+    }
+  }
+
+  // Get recently used addresses
+  getRecent(count = 5) {
+    return this.entries.slice(0, count);
+  }
 }
 
 // Export singleton
