@@ -241,6 +241,55 @@ class GasEstimator {
     };
   }
 
+  // Advanced: Calculate optimal gas price using EIP-1559 (if supported)
+  async calculateOptimalGasPrice() {
+    try {
+      const block = await this.provider.getBlock('latest');
+      if (block.baseFeePerGas) {
+        // EIP-1559 supported
+        const baseFee = block.baseFeePerGas;
+        const maxPriorityFee = ethers.utils.parseUnits('2', 'gwei');
+        const maxFeePerGas = baseFee.mul(2).add(maxPriorityFee);
+        
+        return {
+          baseFeePerGas: ethers.utils.formatUnits(baseFee, 'gwei'),
+          maxPriorityFeePerGas: ethers.utils.formatUnits(maxPriorityFee, 'gwei'),
+          maxFeePerGas: ethers.utils.formatUnits(maxFeePerGas, 'gwei')
+        };
+      }
+    } catch (error) {
+      console.warn('EIP-1559 not supported or error:', error);
+    }
+    return null;
+  }
+
+  // Estimate gas with batching optimization
+  async estimateGasBatch(transactions) {
+    try {
+      const estimates = await Promise.all(
+        transactions.map(tx => this.estimateGas(tx))
+      );
+      return estimates;
+    } catch (error) {
+      console.error('Error estimating batch gas:', error);
+      return transactions.map(() => ethers.BigNumber.from('100000'));
+    }
+  }
+
+  // Calculate gas savings by using batching
+  calculateBatchSavings(singleGasCosts, batchGasCost) {
+    const totalSingle = singleGasCosts.reduce((a, b) => parseFloat(a) + parseFloat(b), 0);
+    const savings = totalSingle - parseFloat(batchGasCost);
+    const percentage = ((savings / totalSingle) * 100).toFixed(1);
+    
+    return {
+      singleTotal: totalSingle.toFixed(6),
+      batchTotal: parseFloat(batchGasCost).toFixed(6),
+      savings: savings.toFixed(6),
+      percentage: percentage
+    };
+  }
+
   // Generate gas estimation UI HTML
   generateEstimationUI(estimations) {
     return `
