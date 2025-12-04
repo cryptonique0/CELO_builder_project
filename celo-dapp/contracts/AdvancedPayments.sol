@@ -51,7 +51,7 @@ contract AdvancedPayments is Pausable, Ownable, ReentrancyGuard {
     event PaymentRequestFulfilled(bytes32 indexed requestId, address indexed payer);
     event Withdrawn(address indexed to, uint256 amount);
     
-    constructor() Ownable(msg.sender) {}
+    constructor() {}
     
     /**
      * @dev Send a simple payment with memo

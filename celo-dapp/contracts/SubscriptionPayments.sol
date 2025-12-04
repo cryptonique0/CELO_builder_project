@@ -48,7 +48,7 @@ contract SubscriptionPayments is Pausable, Ownable, ReentrancyGuard {
     event PlanCreated(bytes32 indexed planId, string name, uint256 price);
     event PlanSubscribed(bytes32 indexed planId, address indexed subscriber);
     
-    constructor() Ownable(msg.sender) {}
+    constructor() {}
     
     /**
      * @dev Create a subscription

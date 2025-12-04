@@ -19,7 +19,7 @@ contract MultiTokenPayments is Pausable, Ownable, ReentrancyGuard {
     address public constant cEUR = 0xD8763CBa276a3738E6DE85b4b3bF5FDed6D6cA73;
     address public constant cREAL = 0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787;
     
-    struct TokenPayment {
+    struct TokenPaymentData {
         address payer;
         address token; // address(0) for native CELO
         uint256 amount;
@@ -36,7 +36,7 @@ contract MultiTokenPayments is Pausable, Ownable, ReentrancyGuard {
     }
     
     // State
-    TokenPayment[] public payments;
+    TokenPaymentData[] public payments;
     mapping(address => uint256[]) public userPayments;
     mapping(address => TokenBalance) private balances;
     mapping(address => bool) public supportedTokens;
@@ -44,7 +44,7 @@ contract MultiTokenPayments is Pausable, Ownable, ReentrancyGuard {
     uint256 public totalPayments;
     
     // Events
-    event TokenPayment(
+    event TokenPaymentEvent(
         address indexed payer,
         address indexed token,
         uint256 amount,
@@ -55,7 +55,7 @@ contract MultiTokenPayments is Pausable, Ownable, ReentrancyGuard {
     event TokenAdded(address indexed token);
     event TokenRemoved(address indexed token);
     
-    constructor() Ownable(msg.sender) {
+    constructor() {
         // Add Celo stablecoins as supported
         supportedTokens[cUSD] = true;
         supportedTokens[cEUR] = true;
@@ -130,7 +130,7 @@ contract MultiTokenPayments is Pausable, Ownable, ReentrancyGuard {
         uint256 amount,
         string memory memo
     ) private {
-        payments.push(TokenPayment({
+        payments.push(TokenPaymentData({
             payer: payer,
             token: token,
             amount: amount,
@@ -141,7 +141,7 @@ contract MultiTokenPayments is Pausable, Ownable, ReentrancyGuard {
         userPayments[payer].push(payments.length - 1);
         totalPayments++;
         
-        emit TokenPayment(payer, token, amount, memo, block.timestamp);
+        emit TokenPaymentEvent(payer, token, amount, memo, block.timestamp);
     }
     
     /**
@@ -244,7 +244,7 @@ contract MultiTokenPayments is Pausable, Ownable, ReentrancyGuard {
         uint256 timestamp
     ) {
         require(index < payments.length, "Payment does not exist");
-        TokenPayment memory p = payments[index];
+        TokenPaymentData memory p = payments[index];
         return (p.payer, p.token, p.amount, p.memo, p.timestamp);
     }
     
