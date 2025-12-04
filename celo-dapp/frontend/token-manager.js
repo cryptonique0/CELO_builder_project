@@ -311,6 +311,97 @@ class TokenManager {
     const token = this.tokens[symbol || this.selectedToken];
     return token && token.address === 'native';
   }
+
+  // Get token swap information (placeholder for DEX integration)
+  async getSwapRoute(fromSymbol, toSymbol, amount) {
+    // This would integrate with Uniswap/SushiSwap or other DEX
+    // For now, return mock data
+    return {
+      from: fromSymbol,
+      to: toSymbol,
+      amount: amount,
+      estimatedOutput: (parseFloat(amount) * 0.98).toFixed(4),
+      fee: '0.3%',
+      slippage: '0.5%'
+    };
+  }
+
+  // Get historical token prices (placeholder for price oracle)
+  async getHistoricalPrices(symbol) {
+    // This would integrate with CoinGecko or similar API
+    return {
+      symbol,
+      current: '2.50',
+      day: '2.45',
+      week: '2.40',
+      month: '2.35'
+    };
+  }
+
+  // Calculate conversion between tokens (using price data)
+  async convertBetweenTokens(amount, fromSymbol, toSymbol) {
+    try {
+      // This would use actual price data from an oracle
+      // For now, return mock conversion
+      return {
+        from: amount,
+        fromSymbol,
+        to: (parseFloat(amount) * 1.05).toFixed(4),
+        toSymbol,
+        rate: '1.05'
+      };
+    } catch (error) {
+      console.error('Conversion error:', error);
+      throw error;
+    }
+  }
+
+  // Get staking opportunities for tokens
+  async getStakingInfo() {
+    return {
+      CELO: {
+        apy: '5.5%',
+        minAmount: '1',
+        lockPeriod: '60 days'
+      },
+      cUSD: {
+        apy: '3.0%',
+        minAmount: '100',
+        lockPeriod: '30 days'
+      }
+    };
+  }
+
+  // Batch transfer to multiple recipients
+  async batchTransfer(recipients, symbol = null) {
+    if (!this.signer) {
+      throw new Error('Signer not initialized');
+    }
+
+    const token = this.tokens[symbol || this.selectedToken];
+    const results = [];
+
+    for (const recipient of recipients) {
+      try {
+        const tx = await this.transfer(recipient.address, recipient.amount, symbol);
+        results.push({
+          recipient: recipient.address,
+          amount: recipient.amount,
+          txHash: tx.hash,
+          status: 'pending'
+        });
+      } catch (error) {
+        results.push({
+          recipient: recipient.address,
+          amount: recipient.amount,
+          status: 'failed',
+          error: error.message
+        });
+      }
+    }
+
+    return results;
+  }
 }
 
 // Export singleton instance
