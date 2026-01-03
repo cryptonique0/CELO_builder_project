@@ -1,0 +1,23 @@
+Summary
+- Adds a minimal Celo dApp scaffold with:
+  - `contracts/SimplePayments.sol` — accepts native payments and allows owner withdrawal.
+  - `celo-dapp/scripts/deploy.js` — Hardhat deploy script that writes `deployed-address.json`.
+  - `celo-dapp/test/simplepayments-test.js` — unit test (Hardhat + Mocha/Chai).
+  - `frontend/index.html` — interactive demo using ethers.js (connect wallet, send payment, get balance, withdraw).
+  - `.github/workflows/ci.yml` — compile & test on push/PR.
+  - `.github/workflows/pages.yml` — publishes `frontend/` to GitHub Pages.
+  - `.github/workflows/deploy-alfajores.yml` — deploys to Alfajores and commits `deployed-address.json` back to `main` (commit message contains `[skip ci]`).
+
+How to test locally
+- Install deps and run tests:
+  cd celo-dapp
+  npm install
+  npx hardhat compile
+  npx hardhat test
+
+- Deploy to Alfajores locally:
+  CELO_RPC=https://alfajores-forno.celo-testnet.org PRIVATE_KEY=0x... npx hardhat run scripts/deploy.js --network alfajores
+
+Notes
+- Add repo secret `PRIVATE_KEY` (testnet key only) at Settings → Secrets → Actions to enable deploy.
+- The Alfajores deploy job will write `deployed-address.json` and commit it back to `main` with `[skip ci]`.

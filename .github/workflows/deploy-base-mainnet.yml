@@ -1,4 +1,4 @@
-name: Deploy to Base Sepolia
+name: Deploy to Base Mainnet
 
 on:
   push:
@@ -23,10 +23,13 @@ jobs:
       - name: Compile
         run: npx hardhat compile
 
-      - name: Deploy (Hardhat)
+      - name: Run Tests
+        run: npx hardhat test
+
+      - name: Deploy to Base Mainnet
         env:
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
-        run: npx hardhat run scripts/deploy.js --network base-sepolia
+        run: npx hardhat run scripts/deploy.js --network base
 
       - name: Commit deployed address
         env:
@@ -42,7 +45,7 @@ jobs:
             if git diff --cached --quiet; then
               echo "No changes to deployed-address.json"
             else
-              git commit -m "chore: add deployed address (alfajores) [skip ci]"
+              git commit -m "chore: add deployed address (base-mainnet) [skip ci]"
               git push origin HEAD:main
             fi
           else

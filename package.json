@@ -1,19 +1,28 @@
 {
-  "name": "celo-dapp",
+  "name": "base-dapp",
   "version": "0.1.0",
-  "description": "Minimal Celo dApp scaffold for contest (SimplePayments)",
+  "description": "Minimal Base dApp scaffold for mainnet deployment (SimplePayments)",
   "scripts": {
     "build": "npx hardhat compile",
     "compile": "npx hardhat compile",
     "test": "npx hardhat test",
-    "deploy:alfajores": "npx hardhat run scripts/deploy.js --network alfajores"
+    "deploy:base": "npx hardhat run scripts/deploy.js --network base",
+    "deploy:base-sepolia": "npx hardhat run scripts/deploy.js --network base-sepolia"
   },
   "devDependencies": {
     "hardhat": "^2.16.0",
     "@nomiclabs/hardhat-ethers": "^2.0.6",
-    "ethers": "^5.7.2"
+    "ethers": "^5.7.2",
+    "dotenv": "^16.0.0",
+    "chai": "^4.3.7"
   },
   "dependencies": {
-    "@celo/contractkit": "^1.7.0"
-  }
+  },
+  "main": "hardhat.config.js",
+  "directories": {
+    "test": "test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }

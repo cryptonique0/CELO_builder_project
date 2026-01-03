@@ -19,15 +19,17 @@ describe("SimplePayments", function () {
     await sendTx.wait();
 
     // balance should reflect the payment
-    const bal = await ethers.provider.getBalance(contract.address);
-    expect(bal).to.equal(ethers.utils.parseEther("0.01"));
+    const bal = await contract.balance();
+    const expectedBal = ethers.utils.parseEther("0.01");
+    expect(bal.toString()).to.equal(expectedBal.toString());
 
-    // owner withdraws
-    const before = await ethers.provider.getBalance(owner.address);
+    // owner withdraws 0.005 ether
     const withdrawTx = await contract.connect(owner).withdraw(owner.address, ethers.utils.parseEther("0.005"));
     await withdrawTx.wait();
 
-    const balAfter = await ethers.provider.getBalance(contract.address);
-    expect(balAfter).to.equal(ethers.utils.parseEther("0.005"));
+    // remaining balance should be 0.005 ether
+    const balAfter = await contract.balance();
+    const expectedBalAfter = ethers.utils.parseEther("0.005");
+    expect(balAfter.toString()).to.equal(expectedBalAfter.toString());
   });
 });

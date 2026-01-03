@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Celo SimplePayments</title>
+    <title>Base SimplePayments</title>
     <style>
       body { font-family: Arial, sans-serif; max-width: 720px; margin: 2rem auto; }
       label { display:block; margin-top:0.5rem }
@@ -12,8 +12,8 @@
     </style>
   </head>
   <body>
-    <h1>Celo SimplePayments (Demo)</h1>
-    <p class="muted">A tiny demo using ethers.js to connect a web wallet (MetaMask/Celo Extension) and interact with the SimplePayments contract.</p>
+    <h1>Base SimplePayments (Demo)</h1>
+    <p class="muted">A tiny demo using ethers.js to connect a web wallet (MetaMask) and interact with the SimplePayments contract on Base.</p>
 
     <div>
       <button id="connect">Connect Wallet</button>
@@ -24,17 +24,17 @@
 
     <div>
       <label>Contract address: <input id="contractAddr" placeholder="0x..." style="width:100%" /></label>
-      <label>Amount (CELO): <input id="amount" value="0.001" /></label>
+      <label>Amount (ETH): <input id="amount" value="0.001" /></label>
       <button id="send">Send native payment</button>
       <button id="balance">Get contract balance</button>
-      <div>Contract balance: <span id="balanceVal">-</span> CELO</div>
+      <div>Contract balance: <span id="balanceVal">-</span> ETH</div>
     </div>
 
     <hr />
 
     <div>
       <label>Withdraw to (owner only): <input id="withdrawTo" placeholder="0x..." style="width:100%" /></label>
-      <label>Withdraw amount (CELO): <input id="withdrawAmt" value="0.001" /></label>
+      <label>Withdraw amount (ETH): <input id="withdrawAmt" value="0.001" /></label>
       <button id="withdraw">Withdraw</button>
       <div id="withdrawStatus"></div>
     </div>
@@ -52,7 +52,7 @@
 
       async function connectWallet() {
         if (!window.ethereum) {
-          alert('No injected web3 provider found. Install MetaMask or Celo Extension Wallet.');
+          alert('No injected web3 provider found. Install MetaMask or another EVM wallet.');
           return;
         }
         try {
@@ -91,8 +91,8 @@
         if (!provider) { provider = new ethers.providers.Web3Provider(window.ethereum || ethers.getDefaultProvider()); }
         try {
           const raw = await provider.getBalance(addr);
-          const inCelo = ethers.utils.formatEther(raw);
-          document.getElementById('balanceVal').innerText = inCelo;
+          const inEth = ethers.utils.formatEther(raw);
+          document.getElementById('balanceVal').innerText = inEth;
         } catch (e) {
           console.error(e);
           alert('Failed to read balance');

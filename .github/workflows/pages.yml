@@ -20,13 +20,12 @@ jobs:
           node-version: 18
 
       - name: Install
-        run: |
-          cd /home/runner/work/${{ github.repository }}/celo-dapp || cd ./ && npm ci || true
+        run: npm ci || true
 
       - name: Build frontend
         run: |
           # If you add a real build step later, replace this with the build command.
-          echo "No build step configured; copying frontend files"
+          echo "No build step configured; publishing frontend to gh-pages"
 
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v3
